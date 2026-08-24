@@ -26,6 +26,20 @@ function eno_topic_url($slug) {
     return $category ? get_category_link($category) : home_url('/?s=' . rawurlencode($slug));
 }
 
+function eno_active_topic($term_id) {
+    return is_category($term_id) ? 'active' : '';
+}
+
+function eno_format_date($post_id = null) {
+    return esc_html(get_the_date('Y-m-d', $post_id ?: get_the_ID()));
+}
+
+function eno_archive_years($limit = 4) {
+    ob_start();
+    wp_get_archives(array('type' => 'yearly', 'limit' => $limit, 'show_post_count' => true, 'format' => 'html'));
+    return ob_get_clean();
+}
+
 function eno_post_icon_class($post_id = null) {
     $slugs = wp_get_post_categories($post_id ?: get_the_ID(), array('fields' => 'slugs'));
     if (array_intersect($slugs, array('rust'))) { return 'ti-brand-rust'; }

@@ -1,0 +1,51 @@
+<p>我第一次把一个老项目迁到 Vite，是被启动速度说服的：从三十多秒降到几秒。但第二天 HMR 在某个动态 import 上失效，测试环境也找不到 alias。我当时以为是 esbuild 版本问题，后来抓浏览器真实请求才发现，开发服务器、依赖预构建和生产构建根本不是一条路径。</p>
+<p>Vite 的速度来自浏览器原生 ESM 驱动按需转换，esbuild 只是其中一部分；迁移时要把这几个边界分别验证。</p>
+<h2>先回看旧开发服务器为什么慢</h2>
+<p>传统开发服务器通常先遍历入口、构建完整模块图并生成开发 bundle，服务器准备好后浏览器才能加载。项目变大时，即使只修改一个叶子模块，启动阶段仍可能付出全图处理成本。</p>
+<p>Vite 把模块分成两类：</p>
+<ul><li>依赖：通常来自 <code>node_modules</code>，变化少，体积大，模块格式可能混杂。</li></ul>
+<ul><li>源码：频繁修改，通常是现代 ESM，需要按请求转换。</li></ul>
+<p>开发服务器先处理稳定依赖；业务源码则在浏览器请求到对应 URL 时才转换。首页未触达的路由，不必阻塞首次启动。</p>
+<h2>2. 依赖预构建有两个目的</h2>
+<p>第一，兼容 CommonJS/UMD。浏览器不能直接执行 Node 风格模块，预构建会把它们转换为 ESM。</p>
+<p>第二，减少请求数量。有些 ESM 依赖内部包含数百个小模块；如果原样交给浏览器，会产生大量请求。Vite 把这类依赖合并成更少的模块，以换取稳定、可缓存的加载。</p>
+<p>预构建结果基于 lockfile、补丁目录、配置和环境等信息缓存。依赖没有变化时，重启不应重新做同样的工作。遇到依赖被错误缓存，可以显式强制优化，但不应把“每次启动都清缓存”当成常规脚本。</p>
+<h2>3. 源码转换由 HTTP 请求驱动</h2>
+<p>浏览器请求 <code>/src/main.ts</code>，Vite 转换 TypeScript、重写裸模块导入，再返回可执行 ESM。随后浏览器解析其中的 import 并继续发出请求，模块图逐步展开。</p>
+<p>这带来一个重要结论：开发阶段的“模块”天然对应 URL。插件的 <code>resolveId</code>、<code>load</code>、<code>transform</code> 仍然构成转换管道，但它们工作在按需请求上，而不是必须先输出完整 bundle。</p>
+<p>如果一个插件在每次 transform 中做全项目扫描，Vite 的架构优势仍会被抵消。插件性能应关注单请求开销、缓存键和是否不必要地使大量模块失效。</p>
+<h2>4. HMR 是沿模块图寻找接受边界</h2>
+<p>文件变化后，Vite 并不是简单地重新加载这个文件。它要沿导入关系向上查找 HMR boundary：某个模块显式接受自身或依赖更新，并知道如何把新实现接入当前状态。</p>
+<pre><code>if (import.meta.hot) {
+  import.meta.hot.accept('./state.js', (newModule) =&gt; {
+    store.replace(newModule.createState())
+  })
+}</code></pre>
+<p>框架插件会为组件生成更细粒度的接受逻辑。如果更新一路传播到入口仍没有模块接受，就必须整页刷新，因为运行时无法安全地保留旧状态。</p>
+<p>因此 HMR 慢或频繁全刷新的排查重点是：</p>
+<ul><li>哪个模块成为过宽的共享依赖？</li></ul>
+<ul><li>是否把副作用和纯导出放在同一个模块？</li></ul>
+<ul><li>插件是否返回了稳定的模块边界？</li></ul>
+<ul><li>CSS、组件和状态是否能独立接受更新？</li></ul>
+<h2>5. 为什么开发快不代表生产不打包</h2>
+<p>原生 ESM 的大量请求适合本地低延迟环境，却不一定适合公网。生产构建仍需要 Tree Shaking、代码分割、资源哈希、CSS 提取、压缩和兼容性处理。</p>
+<p>这意味着开发与生产并非完全相同的执行路径。某些仅在构建期出现的问题——动态导入分析、公共基础路径、Chunk 循环依赖、旧浏览器目标——必须通过 <code>vite build</code> 和真实部署预览验证，不能只依赖 dev server。</p>
+<h2>6. 大型项目里 Vite 也会慢在哪里</h2>
+<p>1. 浏览器要请求和解析的模块过多，首屏瀑布变长。</p>
+<p>2. TypeScript 类型检查、ESLint、代码生成与测试被同步塞进启动路径。</p>
+<p>3. 插件在 transform 中做昂贵 I/O，或没有缓存。</p>
+<p>4. 一个基础模块被大量页面依赖，修改后失效范围巨大。</p>
+<p>5. monorepo 中的链接包未被正确预构建，模块格式反复转换。</p>
+<p>优化时应分别量化服务器启动、依赖预构建、单模块转换、浏览器请求瀑布和 HMR 更新时间。只看“ready in 300ms”不能代表页面已经可交互。</p>
+<h2>7. 从 Webpack 迁移时应重新检查的假设</h2>
+<ul><li><code>process.env</code>、<code>require.context</code> 和 Node 内置模块不能原样搬到浏览器。</li></ul>
+<ul><li>公共路径改由 <code>base</code> 和 URL 语义管理。</li></ul>
+<ul><li>插件钩子虽然接近 Rollup，但并非 Webpack Plugin 的一一对应。</li></ul>
+<ul><li>动态导入必须让构建器可分析，过度动态的字符串会破坏预加载和分块。</li></ul>
+<ul><li>开发服务器代理只解决本地跨域，不是生产网关配置。</li></ul>
+<p>迁移成功的标准不是“开发服务器启动了”，而是开发、构建、预览、资源路径、懒加载和错误监控都在目标部署环境下成立。</p>
+<h2>参考资料</h2>
+<ul><li><a href="https://vite.dev/guide/why">Vite 官方：Why Vite</a></li></ul>
+<ul><li><a href="https://vite.dev/guide/dep-pre-bundling">Vite 官方：Dependency Pre-Bundling</a></li></ul>
+<ul><li><a href="https://vite.dev/guide/api-hmr">Vite 官方：HMR API</a></li></ul>
+<ul><li><a href="https://vite.dev/guide/build">Vite 官方：Building for Production</a></li></ul>

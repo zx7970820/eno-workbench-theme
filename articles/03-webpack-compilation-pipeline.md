@@ -2,15 +2,18 @@
 title: "Webpack 编译流程全景：模块图、Loader、Plugin、Chunk 与持久化缓存"
 slug: "webpack-compilation-pipeline"
 category: "工具与效率"
+date: "2022-04-09"
 tags: ["Webpack", "构建系统", "Loader", "Plugin", "性能优化"]
 excerpt: "沿着一次 Compilation，从入口解析到模块图、Chunk 生成、代码优化和持久化缓存，建立排查构建问题的统一坐标系。"
 ---
 
 # Webpack 编译流程全景：模块图、Loader、Plugin、Chunk 与持久化缓存
 
-Webpack 配置难读，往往不是 API 太多，而是我们缺少“当前代码运行在哪个阶段”的坐标。只要把构建看成一条从入口到产物的图计算流水线，Loader、Plugin、代码分割、Tree Shaking 和缓存就能放回各自的位置。
+一次构建失败时，终端只说某个 loader 返回了空内容。我先怀疑是缓存脏了，连续删了几次 cache，错误却稳定复现。后来在插件钩子里打印模块请求，发现一个插件把 Compilation 上的中间状态带到了下一次 watch 构建。那之后我不再把 Webpack 配置当成一堆选项，而是按一次构建经过的阶段去排查。
 
-## 1. Compiler 与 Compilation 是两种生命周期
+Loader、Plugin、代码分割和缓存都属于这条流水线的不同位置，先找阶段，再看配置，通常比盲目删缓存有效。
+
+## 先分清长期实例和本次构建
 
 Compiler 代表一份 Webpack 配置对应的长期编译器实例；Compilation 代表一次具体构建。在 watch 模式下，一个 Compiler 会产生多次 Compilation。
 

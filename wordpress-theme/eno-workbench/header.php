@@ -3,6 +3,7 @@
 <head>
   <meta charset="<?php bloginfo('charset'); ?>">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>(function(){try{var k='eno-theme',v=localStorage.getItem(k),d=window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';document.documentElement.dataset.theme=v==='light'||v==='dark'?v:d;}catch(e){document.documentElement.dataset.theme='dark';}})();</script>
   <?php wp_head(); ?>
 </head>
 <body <?php body_class(); ?>>
@@ -14,28 +15,17 @@
       <p><?php echo esc_html(get_bloginfo('description') ?: '系统、编程与长期实践'); ?></p>
       <button class="mobile-close" data-menu-close aria-label="<?php esc_attr_e('关闭菜单', 'eno-workbench'); ?>"><i class="ti ti-x" aria-hidden="true"></i></button>
     </div>
-    <div class="author-card">
-      <img src="<?php echo esc_url(get_template_directory_uri() . '/assets/images/author-avatar.png'); ?>" alt="<?php esc_attr_e('作者头像', 'eno-workbench'); ?>">
-      <div><strong><i></i> eno</strong><span>Software Engineer</span><small>把问题写到可以复现</small></div>
-    </div>
     <nav class="topic-nav">
       <span class="rail-label">主题</span>
       <?php
-      $topics = array(
-        array('全部文章', 'ti-home', home_url('/')),
-        array('系统设计', 'ti-server', eno_topic_url('system-design')),
-        array('后端与服务', 'ti-database', eno_topic_url('backend')),
-        array('Rust', 'ti-brand-rust', eno_topic_url('rust')),
-        array('Shell 与 Linux', 'ti-terminal-2', eno_topic_url('linux')),
-        array('前端工程', 'ti-code', eno_topic_url('frontend')),
-        array('工具与效率', 'ti-tool', eno_topic_url('tooling')),
-      );
-      foreach ($topics as $topic) : ?>
-        <a class="<?php echo is_home() && $topic[0] === '全部文章' ? 'active' : ''; ?>" href="<?php echo esc_url($topic[2]); ?>"><i class="ti <?php echo esc_attr($topic[1]); ?>" aria-hidden="true"></i><span><?php echo esc_html($topic[0]); ?></span></a>
+      $topics = get_categories(array('hide_empty' => true, 'orderby' => 'name', 'order' => 'ASC'));
+      ?><a class="<?php echo is_home() && !is_paged() ? 'active' : ''; ?>" href="<?php echo esc_url(home_url('/')); ?>"><i class="ti ti-home" aria-hidden="true"></i><span>全部文章</span></a>
+      <?php foreach ($topics as $topic) : ?>
+        <a class="<?php echo esc_attr(eno_active_topic($topic->term_id)); ?>" href="<?php echo esc_url(get_category_link($topic->term_id)); ?>"><i class="ti ti-code" aria-hidden="true"></i><span><?php echo esc_html($topic->name); ?></span></a>
       <?php endforeach; ?>
     </nav>
-    <div class="archive-list"><span class="rail-label">归档</span><ul><?php wp_get_archives(array('type' => 'yearly', 'limit' => 4, 'show_post_count' => true)); ?></ul></div>
-    <div class="rail-footer"><div><a href="https://github.com/" aria-label="GitHub"><i class="ti ti-brand-github" aria-hidden="true"></i></a><a href="mailto:hello@example.com" aria-label="邮件"><i class="ti ti-mail" aria-hidden="true"></i></a><a href="<?php bloginfo('rss2_url'); ?>" aria-label="RSS"><i class="ti ti-rss" aria-hidden="true"></i></a></div><small>© <?php echo esc_html(wp_date('Y')); ?> <?php bloginfo('name'); ?></small></div>
+    <div class="archive-list"><span class="rail-label">归档</span><ul><?php echo eno_archive_years(); ?></ul></div>
+    <div class="rail-footer"><div><a href="<?php echo esc_url(get_bloginfo('rss2_url')); ?>" aria-label="RSS"><i class="ti ti-rss" aria-hidden="true"></i></a><button class="theme-toggle" type="button" data-theme-toggle aria-pressed="false" aria-label="切换到浅色模式" title="切换到浅色模式"><i class="ti ti-sun" aria-hidden="true"></i><span class="screen-reader-text">切换到浅色模式</span></button></div><small>© <?php echo esc_html(wp_date('Y')); ?> <?php bloginfo('name'); ?></small></div>
   </aside>
   <main class="main-area" id="content">
-    <header class="mobile-header"><button data-menu-open aria-label="<?php esc_attr_e('打开菜单', 'eno-workbench'); ?>"><i class="ti ti-menu-2" aria-hidden="true"></i></button><a href="<?php echo esc_url(home_url('/')); ?>"><?php bloginfo('name'); ?></a><i class="ti ti-moon" aria-hidden="true"></i></header>
+    <header class="mobile-header"><button data-menu-open aria-label="<?php esc_attr_e('打开菜单', 'eno-workbench'); ?>"><i class="ti ti-menu-2" aria-hidden="true"></i></button><a href="<?php echo esc_url(home_url('/')); ?>"><?php bloginfo('name'); ?></a><button class="theme-toggle" type="button" data-theme-toggle aria-pressed="false" aria-label="切换到浅色模式" title="切换到浅色模式"><i class="ti ti-sun" aria-hidden="true"></i><span class="screen-reader-text">切换到浅色模式</span></button></header>

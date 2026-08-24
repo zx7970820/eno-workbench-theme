@@ -2,15 +2,16 @@
 title: "React 渲染的两阶段模型：Fiber、协调、提交与并发更新"
 slug: "react-rendering-fiber-concurrency"
 category: "前端工程"
+date: "2021-02-11"
 tags: ["React", "Fiber", "并发渲染", "性能优化"]
 excerpt: "把触发、Render、Commit 与浏览器绘制区分开，再用 Fiber 和优先级理解可中断更新、key、memo 与 Transition 的真实作用。"
 ---
 
 # React 渲染的两阶段模型：Fiber、协调、提交与并发更新
 
-React 性能讨论里最常见的误区，是把“组件函数重新执行”“虚拟 DOM 比较”“DOM 更新”和“浏览器绘制”混成同一件事。正确的心智模型应先划分阶段，再讨论 Fiber 如何让其中一部分工作可调度。
+我曾经为了修一个输入框卡顿，把列表组件包上 memo，结果几乎没有变化。Profiler 显示父组件每次输入都会重新创建一整套 props，memo 只是把问题照原样传下去。后来我才把组件函数执行、协调、DOM 提交和浏览器绘制分开看，也才知道 Fiber 和并发更新分别解决什么。
 
-## 1. 一次界面更新经过什么
+## 从一次输入卡顿开始拆更新路径
 
 React 官方把屏幕更新概括为 Trigger、Render、Commit：
 

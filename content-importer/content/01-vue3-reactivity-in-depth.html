@@ -1,0 +1,68 @@
+<p>有一次筛选面板只改了一个字段，结果整张配置表都重渲染。我先怀疑是组件拆分得不够细，后来在 onRenderTriggered 里看到真正的线索：一个 computed getter 每次都创建新对象，把无关依赖一起带进了更新路径。那次排查让我重新回到 Vue 响应式的底层，而不是继续堆 memo。</p>
+<p>Vue 3 使用 Proxy 只是入口，读操作如何登记、写操作如何找到订阅者，以及更新如何排队，才决定这次误更新会不会再次发生。</p>
+<h2>先画出依赖图，再解释一次误更新</h2>
+<p>假设渲染函数读取了 <code>state.user.name</code>。未来 <code>name</code> 被修改时，运行时必须快速找到需要重新执行的副作用。典型结构可以抽象为：</p>
+<pre><code>type Dep = Set&lt;ReactiveEffect&gt;
+
+const targetMap = new WeakMap&lt;object, Map&lt;PropertyKey, Dep&gt;&gt;()</code></pre>
+<p>第一层用 <code>WeakMap</code> 关联原始对象，避免响应式系统阻止对象被垃圾回收；第二层按属性区分依赖；最后的 <code>Set</code> 保存需要重跑的 effect。它不是“数据指向视图”，而是“被读取的属性反向索引到所有消费者”。</p>
+<pre><code>let activeEffect: ReactiveEffect | undefined
+
+function track(target: object, key: PropertyKey) {
+  if (!activeEffect) return
+  let depsMap = targetMap.get(target)
+  if (!depsMap) targetMap.set(target, (depsMap = new Map()))
+  let dep = depsMap.get(key)
+  if (!dep) depsMap.set(key, (dep = new Set()))
+  dep.add(activeEffect)
+}
+
+function trigger(target: object, key: PropertyKey) {
+  const effects = targetMap.get(target)?.get(key)
+  effects?.forEach(effect =&gt; effect.scheduler ? effect.scheduler() : effect.run())
+}</code></pre>
+<p>真实实现还要处理数组长度、<code>Map</code>/<code>Set</code> 迭代、只读代理、嵌套 effect、自触发保护等边界，但这个模型已经解释了大多数现象。</p>
+<h2>2. 为什么需要 effect 栈和依赖清理</h2>
+<p>effect 可能嵌套：组件渲染过程中会读取 computed，computed 内部又执行自己的 effect。单一全局变量不足以恢复父级上下文，因此运行时需要栈。</p>
+<p>更容易被忽略的是分支依赖：</p>
+<pre><code>watchEffect(() =&gt; {
+  result.value = enabled.value ? sourceA.value : sourceB.value
+})</code></pre>
+<p>当 <code>enabled</code> 从 <code>true</code> 变为 <code>false</code>，<code>sourceA</code> 不应继续触发这个 effect。每次执行前需要清理旧依赖，再依据本次实际读取重新收集。否则依赖集合只增不减，既造成无效更新，也形成隐性的内存压力。</p>
+<h2>3. trigger 不等于立即重渲染</h2>
+<p>如果一次同步操作连续修改多个状态，逐次渲染会浪费大量工作。Vue 把组件更新包装为 job，交给调度器去重，再在微任务中统一刷新。</p>
+<pre><code>state.firstName = 'Ada'
+state.lastName = 'Lovelace'
+// 两次 trigger，通常只产生一次组件更新</code></pre>
+<p>这解释了为什么修改状态后立刻读取 DOM 可能仍是旧值，也解释了 <code>nextTick()</code> 的用途：它等待当前更新队列完成，而不是让 JavaScript “暂停一帧”。</p>
+<p>调度时机同样影响 watcher：<code>flush: 'pre'</code> 适合在组件 DOM 更新前处理派生逻辑，<code>flush: 'post'</code> 适合读取更新后的 DOM，<code>flush: 'sync'</code> 则绕过去重队列，只有在确实需要同步语义时才应使用。</p>
+<h2>4. computed 为什么既像值又像 effect</h2>
+<p>computed 内部维护一个惰性 effect。依赖变更时，它首先把自己标记为 dirty，而不是立即重新计算；下一次读取 <code>.value</code> 时才执行 getter，并缓存结果。</p>
+<p>这带来两个结论：</p>
+<p>1. computed 适合纯粹的派生数据，不适合包含网络请求或写状态等副作用。</p>
+<p>2. 一个从未被读取的 computed，即使上游频繁变化，也不会重复做无用计算。</p>
+<p>当 computed 链很长时，优化方向通常不是手动缓存，而是减少无意义的上游失效，并避免 getter 每次创建新的大对象。</p>
+<h2>5. 常见“失去响应式”并不是 Proxy 失效</h2>
+<pre><code>const state = reactive({ count: 0 })
+let { count } = state
+count++</code></pre>
+<p>解构得到的是普通局部变量，后续读写不再经过源对象的代理陷阱。对于基本类型，可使用 <code>toRef</code>/<code>toRefs</code> 保留容器语义。另一个常见问题是混用原始对象和代理对象：两者身份不同，应尽量只在业务层使用代理版本。</p>
+<h2>6. 深层响应式不是免费的</h2>
+<p>大型不可变数据、编辑器文档树或外部状态机通常不需要 Vue 递归代理每一层。可以用 <code>shallowRef</code> 把边界缩到 <code>.value</code>，在外部状态变化时整体替换引用：</p>
+<pre><code>const documentState = shallowRef(loadLargeDocument())
+
+function applyPatch(patch) {
+  documentState.value = externalStore.apply(patch)
+}</code></pre>
+<p>这不是“关闭响应式”，而是明确告诉运行时：内部结构由另一个系统负责，Vue 只观察根引用。</p>
+<h2>7. 调试应观察“谁追踪了谁”</h2>
+<p>遇到意外重渲染，不要先堆 <code>computed</code> 或 <code>watch</code>。在开发环境使用 <code>onRenderTracked</code>、<code>onRenderTriggered</code>，记录依赖的 target、key 和操作类型。重点回答：</p>
+<ul><li>渲染时意外读取了哪个大对象？</li></ul>
+<ul><li>是 <code>set</code>、<code>add</code>、<code>delete</code> 还是迭代依赖触发？</li></ul>
+<ul><li>某个 watcher 是否同时写回了自己的上游？</li></ul>
+<ul><li>是否因每次创建新引用而使下游失效？</li></ul>
+<p>响应式优化的核心不是让 effect 更快，而是让依赖图更准确、让无关节点不进入更新路径。</p>
+<h2>参考资料</h2>
+<ul><li><a href="https://vuejs.org/guide/extras/reactivity-in-depth.html">Vue 官方：Reactivity in Depth</a></li></ul>
+<ul><li><a href="https://vuejs.org/api/reactivity-core.html">Vue 官方：Reactivity API Core</a></li></ul>
+<ul><li><a href="https://vuejs.org/guide/best-practices/performance">Vue 官方：Performance</a></li></ul>
