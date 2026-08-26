@@ -1,30 +1,32 @@
 <?php
 /**
  * Plugin Name: Eno Workbench Content Importer
- * Description: 一次性、幂等导入 Eno Workbench 的四篇正式文章；不创建账号，不提供前台逻辑。
- * Version: 1.0.3
+ * Description: 一次性、幂等导入 Eno Workbench 的 18 篇正式文章；不创建账号，不提供前台逻辑。
+ * Version: 1.0.8
  * Author: eno
  */
 if (!defined('ABSPATH')) { exit; }
 
 function eno_workbench_import_articles() {
     $specs = array(
-        array('title' => '深入 Vue 3 响应式系统：依赖追踪、调度器与性能边界', 'slug' => 'vue3-reactivity-in-depth', 'category' => '前端工程', 'category_slug' => 'frontend', 'tags' => array('Vue','响应式','运行时','性能优化'), 'excerpt' => '从 targetMap 的依赖图开始，沿着 track、trigger、scheduler、computed 与 watch 拆开一次更新，并讨论分支清理、深层代理和外部状态集成的性能边界。', 'date' => '2020-06-18', 'file' => '01-vue3-reactivity-in-depth.html'),
-        array('title' => 'React 渲染的两阶段模型：Fiber、协调、提交与并发更新', 'slug' => 'react-rendering-fiber-concurrency', 'category' => '前端工程', 'category_slug' => 'frontend', 'tags' => array('React','Fiber','并发渲染','性能优化'), 'excerpt' => '从 render 与 commit 两阶段出发，解释 Fiber 如何保存可中断的工作单元、协调如何复用节点，以及并发更新为什么必须区分优先级。', 'date' => '2021-02-11', 'file' => '02-react-rendering-fiber-concurrency.html'),
+        array('title' => 'Vue Next beta 的响应式：顺着 effect、computed 和 scheduler 追一次更新', 'slug' => 'vue3-reactivity-in-depth', 'category' => '前端工程', 'category_slug' => 'frontend', 'tags' => array('Vue','Vue 3','响应式','运行时'), 'excerpt' => '2020 年 6 月，Vue 3 还在 beta。我从一个只有 count 和 computed 的小例子开始，顺着 vue-next 的 effect、computed 和 scheduler 看一次更新到底经过哪些函数。', 'date' => '2020-06-18', 'file' => '01-vue3-reactivity-in-depth.html'),
+        array('title' => 'React class 组件里的性能优化：shouldComponentUpdate 什么时候值得写', 'slug' => 'react-class-lifecycle-scu', 'category' => '前端工程', 'category_slug' => 'frontend', 'tags' => array('React','生命周期','shouldComponentUpdate','性能优化'), 'excerpt' => '项目里的列表开始卡之后，我沿着 class 生命周期和 shouldComponentUpdate 查了一遍，最后发现比较本身也有成本。', 'date' => '2019-01-15', 'file' => 'react-class-lifecycle-scu.html'),
+        array('title' => 'React 渲染的两阶段模型：Fiber 如何把工作变成可中断的任务', 'slug' => 'react-rendering-fiber-concurrency', 'category' => '前端工程', 'category_slug' => 'frontend', 'tags' => array('React','Fiber','并发渲染','性能优化'), 'excerpt' => '从触发、Render、Commit 到浏览器绘制，沿着 Fiber 节点、workLoop 和 shouldYield 看 React 如何暂停低优先级工作。', 'date' => '2021-02-11', 'file' => '02-react-rendering-fiber-concurrency.html'),
+        array('title' => 'React Hooks 从 useState 到自定义 Hook：先把闭包和规则弄明白', 'slug' => 'react-hooks-from-state-to-custom', 'category' => '前端工程', 'category_slug' => 'frontend', 'tags' => array('React','Hooks','useState','自定义 Hook'), 'excerpt' => '从 useState 的更新队列讲到 useRef、useReducer 和自定义 Hook，顺便解释闭包快照与 Hooks 规则为什么不能随便破坏。', 'date' => '2021-10-20', 'file' => 'react-hooks-from-state-to-custom.html'),
+        array('title' => 'Vue 2 响应式从 Observer 到 Watcher：一条属性是怎么通知到视图的', 'slug' => 'vue2-observer-dep-watcher', 'category' => '前端工程', 'category_slug' => 'frontend', 'tags' => array('Vue','Vue 2','Observer','Watcher'), 'excerpt' => '沿着 Vue 2 的 Observer、Dep 和 Watcher 拆开一次属性读取与修改，理解 defineReactive 和异步更新队列。', 'date' => '2021-06-09', 'file' => 'vue2-observer-dep-watcher.html'),
+        array('title' => 'Vue 2 computed 和 watch 的分界：dirty 标记如何避免重复计算', 'slug' => 'vue2-computed-watch-dirty', 'category' => '前端工程', 'category_slug' => 'frontend', 'tags' => array('Vue','Vue 2','computed','watch'), 'excerpt' => '从 lazy watcher 和 dirty 字段开始，比较 computed 与 watch 的触发方式、缓存边界和各自适合解决的问题。', 'date' => '2022-07-18', 'file' => 'vue2-computed-watch-dirty.html'),
+        array('title' => 'Vue 2 的三类 Watcher：渲染、computed 和用户 watch 分别在等什么', 'slug' => 'vue2-watcher-types', 'category' => '前端工程', 'category_slug' => 'frontend', 'tags' => array('Vue','Vue 2','Watcher','源码'), 'excerpt' => '用源码里的 lazy、user、deep 和 render 标记区分三类 watcher，说明它们的创建时机、触发方式与实际场景。', 'date' => '2023-02-14', 'file' => 'vue2-watcher-types.html'),
+        array('title' => '从 VNode 到 patch：Vue 2 虚拟 DOM 的一次更新是怎么落到真实节点的', 'slug' => 'vue2-virtual-dom-diff', 'category' => '前端工程', 'category_slug' => 'frontend', 'tags' => array('Vue','Vue 2','虚拟 DOM','diff'), 'excerpt' => '沿着 createElm、sameVnode、patchVnode 和 updateChildren 看 Vue 2 的虚拟 DOM 更新，重点解释 key 到底参与了什么。', 'date' => '2023-11-08', 'file' => 'vue2-virtual-dom-diff.html'),
+        array('title' => 'React Hooks 怎么分工：从 state、effect 到稳定引用', 'slug' => 'react-effect-memo-callback', 'category' => '前端工程', 'category_slug' => 'frontend', 'tags' => array('React','Hooks','useEffect','性能优化'), 'excerpt' => '不把 Hook 当生命周期清单，从一个搜索页面的更新链开始，分清 state、ref、effect、memo、transition 和自定义 Hook 各自该管什么。', 'date' => '2024-02-26', 'file' => 'react-effect-memo-callback.html'),
         array('title' => 'Webpack 编译流程全景：模块图、Loader、Plugin、Chunk 与持久化缓存', 'slug' => 'webpack-compilation-pipeline', 'category' => '工具与效率', 'category_slug' => 'tooling', 'tags' => array('Webpack','构建系统','Loader','Plugin'), 'excerpt' => '沿着一次 webpack 编译，拆开入口解析、模块图构建、Loader 转换、Plugin 生命周期、Chunk 生成与持久化缓存。', 'date' => '2022-04-09', 'file' => '03-webpack-compilation-pipeline.html'),
         array('title' => 'Vite 为什么快：原生 ESM、依赖预构建、按需转换与 HMR 边界', 'slug' => 'vite-dev-server-hmr', 'category' => '工具与效率', 'category_slug' => 'tooling', 'tags' => array('Vite','ESM','HMR','构建工具'), 'excerpt' => 'Vite 的速度来自开发阶段延迟构建的取舍。本文从浏览器原生 ESM、依赖预构建、按需转换与 HMR 边界解释这套模型。', 'date' => '2023-09-15', 'file' => '04-vite-dev-server-hmr.html'),
-        array('title' => '一次线上 Node 服务内存上涨，我是怎么把问题缩小的', 'slug' => 'node-memory-growth-debugging', 'category' => '后端服务', 'category_slug' => 'backend', 'tags' => array('Node.js','内存','排障'), 'excerpt' => '从 RSS、heap snapshot 到一处被缓存住的闭包，记录一次没有靠重启解决的 Node 内存问题。', 'date' => '2020-06-18', 'file' => 'node-memory-growth-debugging.html'),
-        array('title' => '给一个 HTTP 服务加超时：比设置一个数字麻烦得多', 'slug' => 'http-timeout-boundaries', 'category' => '后端服务', 'category_slug' => 'backend', 'tags' => array('HTTP','Node.js','可靠性'), 'excerpt' => '连接、读取、业务和下游请求的超时不是同一个概念，边界不清就会把慢请求变成雪崩。', 'date' => '2021-02-11', 'file' => 'http-timeout-boundaries.html'),
-        array('title' => 'MySQL 索引不是越多越好：一次慢查询的回放', 'slug' => 'mysql-index-slow-query-replay', 'category' => '数据与缓存', 'category_slug' => 'data-cache', 'tags' => array('MySQL','索引','SQL'), 'excerpt' => '用 EXPLAIN、数据分布和写入成本回放一次索引选择，理解联合索引为什么没有生效。', 'date' => '2022-04-09', 'file' => 'mysql-index-slow-query-replay.html'),
-        array('title' => '缓存击穿不是一句加锁就结束：我把保护放在哪一层', 'slug' => 'cache-breakdown-singleflight', 'category' => '数据与缓存', 'category_slug' => 'data-cache', 'tags' => array('缓存','Redis','并发'), 'excerpt' => '热点 key 失效时，大量请求同时回源。记录 singleflight、TTL 抖动和失败回退如何配合。', 'date' => '2023-01-27', 'file' => 'cache-breakdown-singleflight.html'),
-        array('title' => 'Shell 脚本跑在 CI 里以后，错误处理才真正开始', 'slug' => 'shell-ci-failure-modes', 'category' => 'Shell 与 Linux', 'category_slug' => 'shell-linux', 'tags' => array('Shell','CI','自动化'), 'excerpt' => 'set -e 并不能替你定义失败语义，管道、临时文件、信号和重试都需要显式处理。', 'date' => '2023-09-15', 'file' => 'shell-ci-failure-modes.html'),
-        array('title' => 'Linux 上的文件描述符：服务为什么突然打不开新连接', 'slug' => 'linux-file-descriptors-practical', 'category' => 'Shell 与 Linux', 'category_slug' => 'shell-linux', 'tags' => array('Linux','文件描述符','服务运维'), 'excerpt' => '从 ulimit、进程级限制到连接泄漏，解释 too many open files 该怎么定位和修复。', 'date' => '2024-03-06', 'file' => 'linux-file-descriptors-practical.html'),
-        array('title' => 'Rust 所有权让我少写了一个锁：从缓存边界开始', 'slug' => 'rust-ownership-cache-boundary', 'category' => 'Rust', 'category_slug' => 'rust', 'tags' => array('Rust','所有权','并发'), 'excerpt' => '用所有权和借用重新画缓存 API 的边界，避免共享可变状态把并发代码变成锁的集合。', 'date' => '2024-08-22', 'file' => 'rust-ownership-cache-boundary.html'),
-        array('title' => '把 Rust async 任务关干净：取消、JoinHandle 与退出顺序', 'slug' => 'rust-async-shutdown-order', 'category' => 'Rust', 'category_slug' => 'rust', 'tags' => array('Rust','Tokio','异步'), 'excerpt' => '服务收到 SIGTERM 后如何让任务停止、连接关闭、日志刷完，避免优雅退出只是口号。', 'date' => '2025-01-18', 'file' => 'rust-async-shutdown-order.html'),
-        array('title' => '从日志到可行动的指标：我给一次发布补了三条线', 'slug' => 'observability-three-signals', 'category' => '可观测性', 'category_slug' => 'observability', 'tags' => array('可观测性','日志','指标'), 'excerpt' => '日志很多不等于可观测。以一次发布为例，把请求、错误和资源消耗连成能驱动行动的信号。', 'date' => '2025-05-30', 'file' => 'observability-three-signals.html'),
         array('title' => 'Vite 迁移后的第一周：快了，但测试和依赖暴露了问题', 'slug' => 'vite-migration-first-week', 'category' => '工具与效率', 'category_slug' => 'tooling', 'tags' => array('Vite','迁移','工程效率'), 'excerpt' => '从 webpack 迁到 Vite 并不只是换启动命令，测试环境、别名、动态导入和依赖预构建都要重新确认。', 'date' => '2025-10-12', 'file' => 'vite-migration-first-week.html'),
         array('title' => 'React 列表卡顿的真正原因：不是把 key 换成 index', 'slug' => 'react-list-performance-review', 'category' => '前端工程', 'category_slug' => 'frontend', 'tags' => array('React','性能','列表'), 'excerpt' => '一次长列表评审里，真正的问题是无效重渲染和过大的上下文，而不是表面上的 key 警告。', 'date' => '2026-02-07', 'file' => 'react-list-performance-review.html'),
-        array('title' => '部署脚本的最后一公里：回滚不是复制旧目录', 'slug' => 'deployment-rollback-last-mile', 'category' => '部署与工程', 'category_slug' => 'deployment', 'tags' => array('部署','回滚','发布'), 'excerpt' => '把版本、数据库变更、健康检查和回滚动作放进同一个发布协议，避免出问题时只能手工补救。', 'date' => '2026-08-01', 'file' => 'deployment-rollback-last-mile.html'),
+        array('title' => '我把 React 仓库拉下来，翻了一遍它的 AI 协作文件', 'slug' => 'react-repo-agent-workflow', 'category' => '前端工程', 'category_slug' => 'frontend', 'tags' => array('React','AI 协作','工程流程','开源协作'), 'excerpt' => '随手翻一遍 React 官方仓库里的 CLAUDE.md、SKILL.md 和 CI 配置，看看成熟项目怎样把 AI 协作放进日常开发，而不是停在口号上。', 'date' => '2026-08-18', 'file' => 'react-repo-agent-workflow.html'),
+        array('title' => '浏览器从打开网页到显示像素：一次页面加载的八个阶段', 'slug' => 'browser-navigation-rendering-pipeline', 'category' => '前端工程', 'category_slug' => 'frontend', 'tags' => array('浏览器','渲染','性能','网络'), 'excerpt' => '从输入 URL、建立连接、解析 HTML，到样式计算、布局、绘制、分层、光栅化和合成，沿着八个阶段看页面怎样变成屏幕上的像素。', 'date' => '2026-08-24', 'file' => 'browser-navigation-rendering-pipeline.html'),
+        array('title' => 'script 标签的加载顺序：async、defer、module 和资源提示', 'slug' => 'script-loading-attributes', 'category' => '前端工程', 'category_slug' => 'frontend', 'tags' => array('浏览器','JavaScript','性能','HTML'), 'excerpt' => '把 script 的执行时机、模块脚本、CSP 和优先级属性拆开，再说明 dns-prefetch、preconnect、preload、prefetch 到底属于哪一种资源提示。', 'date' => '2026-08-22', 'file' => 'script-loading-attributes.html'),
+        array('title' => '从 IIFE 到 ESM：JavaScript 模块化是怎么走到今天的', 'slug' => 'javascript-module-systems-history', 'category' => '前端工程', 'category_slug' => 'frontend', 'tags' => array('JavaScript','模块化','ESM','Vite'), 'excerpt' => '从早期的 IIFE 和 script 顺序，到 AMD、CMD、CommonJS，再到浏览器原生 ESM，沿着每一代模块方案解决的问题看它们的差别。', 'date' => '2026-08-20', 'file' => 'javascript-module-systems-history.html'),
+        array('title' => 'HTTP/1.0、1.1、2、3 到底差在哪：从一条请求看协议演进', 'slug' => 'http-version-evolution', 'category' => '前端工程', 'category_slug' => 'frontend', 'tags' => array('HTTP','网络','性能','浏览器'), 'excerpt' => '不把 HTTP/1.0、1.1、2、3 写成一张特性表，从请求格式、连接复用、多路复用、队头阻塞、头部压缩和 QUIC 看它们各自解决了什么。', 'date' => '2026-08-24', 'file' => 'http-version-evolution.html'),
     );
     $ids = array();
     foreach ($specs as $spec) {
@@ -35,7 +37,7 @@ function eno_workbench_import_articles() {
         if (!$term || $content === '') { continue; }
         $existing = get_page_by_path($spec['slug'], OBJECT, 'post');
         $local_date = $spec['date'] . ' 09:00:00';
-        $post = array('post_title'=>$spec['title'],'post_name'=>$spec['slug'],'post_content'=>$content,'post_excerpt'=>$spec['excerpt'],'post_status'=>'publish','post_type'=>'post','comment_status'=>'open','post_date'=>$local_date,'post_date_gmt'=>get_gmt_from_date($local_date));
+        $post = array('post_title'=>$spec['title'],'post_name'=>$spec['slug'],'post_content'=>$content,'post_excerpt'=>$spec['excerpt'],'post_status'=>'publish','post_type'=>'post','comment_status'=>'closed','post_date'=>$local_date,'post_date_gmt'=>get_gmt_from_date($local_date));
         if ($existing) { $post['ID'] = (int) $existing->ID; }
         $id = wp_insert_post($post, true);
         if (is_wp_error($id)) { continue; }
@@ -43,9 +45,30 @@ function eno_workbench_import_articles() {
         wp_set_post_terms($id, $spec['tags'], 'post_tag', false);
         $ids[] = (int) $id;
     }
+    eno_workbench_retire_articles(array(
+        'rust-ownership-cache-boundary',
+        'rust-async-shutdown-order',
+        'deployment-rollback-last-mile',
+        'node-memory-growth-debugging',
+        'http-timeout-boundaries',
+        'mysql-index-slow-query-replay',
+        'cache-breakdown-singleflight',
+        'shell-ci-failure-modes',
+        'linux-file-descriptors-practical',
+        'observability-three-signals',
+    ));
     update_option('eno_workbench_import_last_ids', $ids, false);
     update_option('eno_workbench_import_last_at', current_time('mysql'), false);
     eno_workbench_draft_default_hello_world();
+}
+
+function eno_workbench_retire_articles($slugs) {
+    foreach ($slugs as $slug) {
+        $post = get_page_by_path($slug, OBJECT, 'post');
+        if ($post && $post->post_status !== 'draft') {
+            wp_update_post(array('ID' => (int) $post->ID, 'post_status' => 'draft'));
+        }
+    }
 }
 register_activation_hook(__FILE__, 'eno_workbench_import_articles');
 
@@ -54,7 +77,7 @@ function eno_workbench_draft_default_hello_world() {
     if (!$post) { return; }
     $title = trim(wp_strip_all_tags($post->post_title));
     $body = preg_replace('/\\s+/', ' ', trim(wp_strip_all_tags($post->post_content)));
-    $known_titles = array('世界，您好！', '世界，您好!', 'Hello world', 'Hello World');
+    $known_titles = array('世界，您好！', '世界，您好!', 'Hello world', 'Hello world!', 'Hello World', 'Hello World!');
     $known_bodies = array('欢迎来到 WordPress。这是您的第一篇文章。编辑或删除它，然后开始写作！', '欢迎使用 WordPress。这是您的第一篇文章。编辑或删除它，然后开始写作吧！', 'Welcome to WordPress. This is your first post. Edit or delete it, then start writing!');
     $title_matches = in_array($title, $known_titles, true);
     $body_matches = false;

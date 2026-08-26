@@ -1,8 +1,22 @@
 <?php get_header(); ?>
 <?php while (have_posts()) : the_post(); ?>
+<div class="reading-progress" aria-hidden="true"><span></span></div>
 <article <?php post_class('entry-shell panel'); ?>>
-  <header class="entry-header"><span class="eyebrow"><?php $cats = get_the_category(); echo esc_html($cats ? $cats[0]->name : '深度阅读'); ?></span><h1><?php the_title(); ?></h1><div class="entry-meta"><span><?php echo esc_html(get_the_date('Y-m-d')); ?></span><span><?php echo esc_html(eno_reading_time()); ?> min read</span><span class="comment-count"><?php comments_number('0 条评论', '1 条评论', '% 条评论'); ?></span></div></header>
+  <header class="entry-header">
+    <?php $cats = get_the_category(); ?>
+    <div class="entry-breadcrumb"><a href="<?php echo esc_url(home_url('/')); ?>">全部文章</a><span aria-hidden="true">/</span><?php if ($cats) : ?><a href="<?php echo esc_url(get_category_link($cats[0])); ?>"><?php echo esc_html($cats[0]->name); ?></a><?php else : ?><span>深度阅读</span><?php endif; ?></div>
+    <h1 data-post-transition-title data-post-url="<?php echo esc_url(get_permalink()); ?>"><?php the_title(); ?></h1>
+    <div class="entry-meta"><span>发布于 <?php echo esc_html(get_the_date('Y-m-d')); ?></span><?php if (get_the_modified_date('Y-m-d') !== get_the_date('Y-m-d')) : ?><span>更新于 <?php echo esc_html(get_the_modified_date('Y-m-d')); ?></span><?php endif; ?></div>
+    <?php $tags = get_the_tags(); if ($tags) : ?><div class="entry-tags" aria-label="文章标签"><?php foreach ($tags as $tag) : ?><a href="<?php echo esc_url(get_tag_link($tag)); ?>">#<?php echo esc_html($tag->name); ?></a><?php endforeach; ?></div><?php endif; ?>
+  </header>
   <div class="entry-content"><?php the_content(); wp_link_pages(); ?></div>
 </article>
-<?php if (comments_open() || get_comments_number()) { comments_template(); } endwhile; ?>
+<?php $previous = get_previous_post(); $next = get_next_post(); ?>
+<?php if ($previous || $next) : ?>
+<nav class="entry-nav" aria-label="文章导航">
+  <?php if ($previous) : ?><a class="entry-nav-card entry-nav-card--previous" href="<?php echo esc_url(get_permalink($previous)); ?>"><small>上一篇</small><strong data-post-transition-title data-post-url="<?php echo esc_url(get_permalink($previous)); ?>"><?php echo esc_html(get_the_title($previous)); ?></strong><span>←</span></a><?php endif; ?>
+  <?php if ($next) : ?><a class="entry-nav-card entry-nav-card--next" href="<?php echo esc_url(get_permalink($next)); ?>"><small>下一篇</small><strong data-post-transition-title data-post-url="<?php echo esc_url(get_permalink($next)); ?>"><?php echo esc_html(get_the_title($next)); ?></strong><span>→</span></a><?php endif; ?>
+</nav>
+<?php endif; ?>
+<?php endwhile; ?>
 <?php get_footer(); ?>

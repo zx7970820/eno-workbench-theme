@@ -21,6 +21,6 @@
 ## 目录
 
 - `front-page.php`：首页工程台布局。
-- `index.php`：文章列表、分类、归档与搜索结果。
+- `index.php`：文章列表、分类与搜索结果；年份筛选不作为前台导航入口。
 - `single.php`：长文阅读页。
 - `assets/js/theme.js`：移动导航和搜索快捷键。

@@ -9,9 +9,9 @@ excerpt: "沿着一次 Compilation，从入口解析到模块图、Chunk 生成�
 
 # Webpack 编译流程全景：模块图、Loader、Plugin、Chunk 与持久化缓存
 
-一次构建失败时，终端只说某个 loader 返回了空内容。我先怀疑是缓存脏了，连续删了几次 cache，错误却稳定复现。后来在插件钩子里打印模块请求，发现一个插件把 Compilation 上的中间状态带到了下一次 watch 构建。那之后我不再把 Webpack 配置当成一堆选项，而是按一次构建经过的阶段去排查。
+当终端只报“某个 loader 返回了空内容”时，先删缓存通常没有用。更有效的办法是问：错误发生在模块转换、依赖图生成、优化，还是产物写出？Webpack 配置看起来是一堆选项，实际却是在描述一次 Compilation 要经过的流水线。
 
-Loader、Plugin、代码分割和缓存都属于这条流水线的不同位置，先找阶段，再看配置，通常比盲目删缓存有效。
+Loader、Plugin、代码分割和缓存各自站在不同阶段。先找到阶段，再看配置，排查会快很多。
 
 ## 先分清长期实例和本次构建
 
@@ -19,7 +19,7 @@ Compiler 代表一份 Webpack 配置对应的长期编译器实例；Compilation
 
 这一区别很重要：插件如果把本次构建状态错误地挂在 Compiler 上，增量构建时可能读取上一次残留；而需要跨构建复用的缓存如果只放在 Compilation 上，又会在每次重编译时丢失。
 
-## 2. 从 Entry 开始生成模块图
+## 从 Entry 开始生成模块图
 
 Webpack 从入口解析依赖请求，将每个文件转换为模块，再递归分析它的静态依赖。解析过程要回答：
 
@@ -30,7 +30,7 @@ Webpack 从入口解析依赖请求，将每个文件转换为模块，再递归
 
 最终得到的不是文件列表，而是带有依赖边的模块图。`import()` 等异步边界会影响后续 Chunk 划分。
 
-## 3. Loader 是单模块转换管道
+## Loader 是单模块转换管道
 
 Loader 接收某个模块的源内容，并返回 JavaScript 或能被下一个 Loader 继续处理的结果。规则通常从右到左执行：
 
@@ -48,7 +48,7 @@ module.exports = {
 
 Loader 的边界应保持清晰：它最适合处理“一个模块如何转换”。修改产物列表、注入运行时、分析整张图或在构建结束写报告，通常属于 Plugin。
 
-## 4. Plugin 通过 Hook 参与整条流水线
+## Plugin 通过 Hook 参与整条流水线
 
 Webpack Plugin 是带有 `apply(compiler)` 的对象，通过 Tapable hooks 介入初始化、模块构建、优化、产物生成等阶段。
 
@@ -67,7 +67,7 @@ class BuildMetaPlugin {
 
 写插件时应选择最晚但仍满足需求的 Hook，避免过早读取尚未稳定的数据，也避免在优化完成后再修改会破坏哈希或缓存假设的结构。
 
-## 5. Module、Chunk 与 Bundle 不应混用
+## Module、Chunk 与 Bundle 不应混用
 
 - Module：图上的源码单元。
 - Chunk：Webpack 根据入口和异步边界形成的模块分组。
@@ -75,7 +75,7 @@ class BuildMetaPlugin {
 
 `splitChunks` 操作的是 Chunk 组织，不是简单地“把 node_modules 拆成 vendor.js”。合理目标应来自缓存命中和加载瀑布：稳定且跨页面共享的代码适合独立缓存；过度切分会增加请求和运行时协调成本。
 
-## 6. Tree Shaking 为什么依赖静态语义
+## Tree Shaking 为什么依赖静态语义
 
 ES Module 的导入导出可以静态分析，Webpack 才能标记哪些导出被使用。最终删除死代码通常由压缩器完成。`package.json` 的 `sideEffects` 告诉构建器哪些文件即使导出未使用也必须保留。
 
@@ -87,7 +87,7 @@ ES Module 的导入导出可以静态分析，Webpack 才能标记哪些导出�
 }
 ```
 
-## 7. 持久化缓存缓存的是什么
+## 持久化缓存存的是什么
 
 Webpack 5 的 filesystem cache 可以跨进程保存模块与计算结果。缓存是否可复用，取决于源码、配置、Loader/Plugin 版本和构建依赖等输入是否变化。
 
@@ -102,7 +102,7 @@ cache: {
 
 如果自定义 Loader 读取了额外配置却没有声明依赖，缓存可能返回过期结果。Loader 应通过依赖 API 告知 Webpack 它读取的文件，而不是把所有缓存问题归咎于 `node_modules/.cache`。
 
-## 8. 构建性能排查顺序
+## 构建性能怎么排查
 
 1. 输出 `stats`，确认时间花在解析、Loader、优化还是产物处理。
 2. 检查重复模块、过宽的 Loader `include` 范围和昂贵 source map。
@@ -111,10 +111,3 @@ cache: {
 5. 用 Bundle Analyzer 观察 Chunk，而不是只盯单个文件大小。
 
 把“慢”定位到阶段后，优化才会从调参变成工程判断。
-
-## 参考资料
-
-- [Webpack 官方：Concepts](https://webpack.js.org/concepts/)
-- [Webpack 官方：Loaders](https://webpack.js.org/concepts/loaders/)
-- [Webpack 官方：Plugins](https://webpack.js.org/concepts/plugins/)
-- [Webpack 官方：Cache](https://webpack.js.org/configuration/cache/)

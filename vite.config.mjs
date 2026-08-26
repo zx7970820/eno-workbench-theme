@@ -1,6 +1,4 @@
-import { defineConfig } from "vite";
-
-export default defineConfig({
+export default {
   build: {
     outDir: "dist/client",
   },
@@ -11,4 +9,4 @@ export default defineConfig({
       clientFiles: ["./src/main.jsx"],
     },
   },
-});
+};

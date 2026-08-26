@@ -4,8 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build && node scripts/prepare-sites-build.mjs",
+    "dev": "node scripts/start-local-wordpress.mjs",
+    "prototype:dev": "vite",
+    "local:down": "docker compose --file infra/docker-compose.yml down",
+    "local:logs": "docker compose --file infra/docker-compose.yml logs --follow --tail=80",
+    "local:check": "node scripts/check-local-wordpress.mjs",
+    "content:sync": "node scripts/sync-content-html.mjs",
+    "build": "vite build --configLoader runner && node scripts/prepare-sites-build.mjs",
     "preview": "vite preview",
     "test:sites": "node --test tests/sites-worker.test.mjs"
   },

@@ -6,13 +6,19 @@ function eno_workbench_setup() {
     add_theme_support('title-tag');
     add_theme_support('post-thumbnails');
     add_theme_support('automatic-feed-links');
-    add_theme_support('html5', array('search-form', 'comment-form', 'comment-list', 'gallery', 'caption', 'style', 'script'));
+    add_theme_support('html5', array('search-form', 'gallery', 'caption', 'style', 'script'));
     add_theme_support('responsive-embeds');
     add_theme_support('editor-styles');
     add_editor_style('style.css');
     register_nav_menus(array('primary' => __('主导航', 'eno-workbench'), 'footer' => __('页脚导航', 'eno-workbench')));
 }
 add_action('after_setup_theme', 'eno_workbench_setup');
+
+function eno_workbench_disable_comments() {
+    return false;
+}
+add_filter('comments_open', 'eno_workbench_disable_comments', 20, 2);
+add_filter('pings_open', 'eno_workbench_disable_comments', 20, 2);
 
 function eno_workbench_assets() {
     $version = wp_get_theme()->get('Version');
@@ -34,12 +40,6 @@ function eno_format_date($post_id = null) {
     return esc_html(get_the_date('Y-m-d', $post_id ?: get_the_ID()));
 }
 
-function eno_archive_years($limit = 4) {
-    ob_start();
-    wp_get_archives(array('type' => 'yearly', 'limit' => $limit, 'show_post_count' => true, 'format' => 'html'));
-    return ob_get_clean();
-}
-
 function eno_post_icon_class($post_id = null) {
     $slugs = wp_get_post_categories($post_id ?: get_the_ID(), array('fields' => 'slugs'));
     if (array_intersect($slugs, array('rust'))) { return 'ti-brand-rust'; }
@@ -49,10 +49,18 @@ function eno_post_icon_class($post_id = null) {
     return 'ti-file-code';
 }
 
-function eno_reading_time($post_id = null) {
-    $content = get_post_field('post_content', $post_id ?: get_the_ID());
-    $characters = mb_strlen(wp_strip_all_tags($content));
-    return max(1, (int) ceil($characters / 450));
+function eno_topic_icon_class($slug) {
+    $icons = array(
+        'frontend' => 'ti-code',
+        'tooling' => 'ti-tool',
+        'backend' => 'ti-server',
+        'data-cache' => 'ti-database',
+        'shell-linux' => 'ti-terminal-2',
+        'rust' => 'ti-brand-rust',
+        'observability' => 'ti-chart-dots-3',
+        'deployment' => 'ti-rocket',
+    );
+    return isset($icons[$slug]) ? $icons[$slug] : 'ti-folder';
 }
 
 function eno_excerpt_length() { return 48; }

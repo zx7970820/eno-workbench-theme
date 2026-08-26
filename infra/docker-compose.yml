@@ -20,6 +20,20 @@ services:
       - ../content-importer:/var/www/html/wp-content/plugins/eno-workbench-content-importer
     depends_on:
       - db
+  wpcli:
+    image: wordpress:cli-php8.2
+    restart: "no"
+    env_file: .env
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+    volumes:
+      - wp_data:/var/www/html
+      - ../wordpress-theme/eno-workbench:/var/www/html/wp-content/themes/eno-workbench
+      - ../content-importer:/var/www/html/wp-content/plugins/eno-workbench-content-importer
+      - ./bootstrap-wordpress.sh:/usr/local/bin/bootstrap-wordpress.sh:ro
+    entrypoint: ["sh", "/usr/local/bin/bootstrap-wordpress.sh"]
+    depends_on:
+      - wordpress
 volumes:
   db_data:
   wp_data:

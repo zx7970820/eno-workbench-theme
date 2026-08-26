@@ -1,0 +1,188 @@
+<p>最容易把 Hook 写乱的场景，是一个页面同时有输入框、请求、筛选列表和一两个需要记住的值。输入一变，组件重新 render；render 里又创建了新对象和新函数；effect 发现依赖变了，再发一次请求；请求回来又 setState。最后大家开始给每一行都加 <code>useMemo</code>，但没人能说清楚到底在阻止哪一次工作。</p>
+<p>我更愿意先把问题拆成两类：这段代码是在描述当前 render 应该显示什么，还是在和 React 之外的东西同步？前一类通常属于 state、reducer 或直接计算，后一类才轮到 effect。</p>
+<h2>先理解 state：每次 render 都是一张快照</h2>
+<p>函数组件里的 <code>count</code> 不是一个会在当前函数执行中改变的变量。它属于这一次 render 的快照，调用 setter 只是把下一次 render 的工作排进队列：</p>
+<pre><code class="language-jsx">function Counter() {
+  const [count, setCount] = useState(0)
+
+  function addTwice() {
+    setCount(count + 1)
+    setCount(count + 1)
+  }
+
+  return &lt;button onClick={addTwice}&gt;{count}&lt;/button&gt;
+}</code></pre>
+<p>点击一次，上面的按钮通常只加 1，因为两个调用都读到了同一张快照。需要基于前一个值连续更新时，要把更新写成函数：</p>
+<pre><code class="language-jsx">setCount(previous =&gt; previous + 1)
+setCount(previous =&gt; previous + 1)</code></pre>
+<p>这也是为什么把 <code>setState</code> 理解成“立刻改变量”会产生很多误判。state setter 会排队，React 再按自己的调度时机合并和处理这些更新；事件处理函数里看到的旧值，并不代表 React 丢了更新。</p>
+<p>当状态变化不只是几个字段，而是由一组动作推动时，我会换成 <code>useReducer</code>，把状态转移写在一个纯函数里：</p>
+<pre><code class="language-jsx">function reducer(state, action) {
+  switch (action.type) {
+    case 'edited':
+      return { ...state, text: action.text, dirty: true }
+    case 'saved':
+      return { ...state, dirty: false }
+    default:
+      throw new Error(`Unknown action: ${action.type}`)
+  }
+}
+
+const [editor, dispatch] = useReducer(reducer, {
+  text: '',
+  dirty: false,
+})</code></pre>
+<p><code>useReducer</code> 不会让更新绕过 render，也不等于状态管理库。它只是让“收到什么动作，变成什么状态”更集中，特别适合表单、编辑器和有明确事件流的组件。</p>
+<h2>ref 保存过程中的东西，但不会触发 render</h2>
+<p><code>useRef</code> 返回的是一个长期存在的 <code>{ current }</code> 容器。修改 <code>current</code> 不会触发重新渲染，所以它适合存 DOM 节点、定时器 id、上一次请求的控制器这类“不直接决定画面”的东西：</p>
+<pre><code class="language-jsx">function SearchInput() {
+  const inputRef = useRef(null)
+  const timerRef = useRef(null)
+
+  function focusInput() {
+    inputRef.current?.focus()
+  }
+
+  function scheduleSave(value) {
+    clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() =&gt; saveDraft(value), 300)
+  }
+
+  return &lt;input ref={inputRef} onChange={event =&gt; scheduleSave(event.target.value)} /&gt;
+}</code></pre>
+<p>如果这个值需要显示在 JSX 里，就不能藏在 ref 里；改了 <code>ref.current</code>，React 不知道页面需要更新。还有一个容易踩的边界：不要在 render 过程中随意读写 ref，事件处理函数和 effect 才是合适的位置。</p>
+<p><code>useContext</code> 解决的是跨层传值，不是“所有状态都放一个全局对象”。读取某个 context 的组件会订阅 provider 的 <code>value</code>；前后 value 用 <code>Object.is</code> 比较，provider 每次 render 都新建一个对象时，下面的消费者就会跟着更新：</p>
+<pre><code class="language-jsx">const SettingsContext = createContext(null)
+
+function SettingsProvider({ children }) {
+  const [locale, setLocale] = useState('zh-CN')
+  const value = useMemo(() =&gt; ({ locale, setLocale }), [locale])
+
+  return &lt;SettingsContext.Provider value={value}&gt;{children}&lt;/SettingsContext.Provider&gt;
+}</code></pre>
+<p>这里的 <code>useMemo</code> 只是在 provider 的 value 确实需要稳定时有意义。它不能阻止真正读取了 context 的组件在 value 变化后更新，也不能替代把 context 拆成更小边界。</p>
+<h2>effect 是“和外部系统同步”的出口</h2>
+<p><code>useEffect</code> 的 setup 在组件提交到 DOM 后运行。它可以连接订阅、网络、计时器、浏览器 API 或第三方 widget；它不是“函数组件版的 componentDidMount”。第二个参数有三种常见形态：</p>
+<pre><code class="language-jsx">// 没有第二个参数：每次 commit 后都执行
+useEffect(() =&gt; {
+  document.title = title
+})
+
+// 空数组：第一次 commit 后执行，卸载时清理
+useEffect(() =&gt; {
+  const connection = connect('general')
+  return () =&gt; connection.close()
+}, [])
+
+// roomId 变化后重新建立连接
+useEffect(() =&gt; {
+  const connection = connect(roomId)
+  return () =&gt; connection.close()
+}, [roomId])</code></pre>
+<p>依赖不是执行次数开关，而是 setup 闭包读取的 reactive values。React 用 <code>Object.is</code> 比较依赖；漏掉依赖会让 setup 继续使用旧的 props 或 state，放进一个每次 render 都新建的对象则会让 effect 反复重跑。遇到 eslint 的 exhaustive-deps 提示，先改代码让依赖变得合理，不要先把规则关掉。</p>
+<p>清理函数和 setup 必须成对出现。切换搜索词时，旧请求不应该把结果覆盖回来：</p>
+<pre><code class="language-jsx">function Results({ query }) {
+  const [rows, setRows] = useState([])
+  const [error, setError] = useState(null)
+
+  useEffect(() =&gt; {
+    const controller = new AbortController()
+    setError(null)
+
+    fetch(`/api/search?q=${encodeURIComponent(query)}`, {
+      signal: controller.signal,
+    })
+      .then(response =&gt; response.json())
+      .then(nextRows =&gt; setRows(nextRows))
+      .catch(error =&gt; {
+        if (error.name !== 'AbortError') setError(error)
+      })
+
+    return () =&gt; controller.abort()
+  }, [query])
+
+  return (
+    &lt;&gt;
+      {error &amp;&amp; &lt;p role=&quot;alert&quot;&gt;加载失败，请稍后重试。&lt;/p&gt;}
+      &lt;ResultList rows={rows} /&gt;
+    &lt;/&gt;
+  )
+}</code></pre>
+<p>不要直接把 <code>async</code> 函数交给 <code>useEffect</code>。<code>async</code> 函数返回的是 Promise，而 effect 的返回值只能是同步 cleanup 函数。开发环境的 Strict Mode 还可能在第一次真正运行前执行一遍 setup → cleanup → setup，这正好能暴露“建立了连接却没有关闭”的问题。Effect 只在客户端运行，服务端渲染不能依赖它生成初始 HTML。</p>
+<p>如果只是把两个 props 拼成一个字符串，或者根据数组过滤出一份展示数据，就在 render 里直接算：</p>
+<pre><code class="language-jsx">// 不必要的额外 render
+const [fullName, setFullName] = useState('')
+useEffect(() =&gt; setFullName(`${first} ${last}`), [first, last])
+
+// 当前 render 已经知道答案
+const fullName = `${first} ${last}`</code></pre>
+<p>把可计算的数据绕进 effect，会多出一次 state 更新，也会制造第二个真相来源。</p>
+<h2>useLayoutEffect 只处理“必须赶在绘制前”的事</h2>
+<p>普通 effect 通常允许浏览器先画出页面。需要先测量 DOM、再调整 tooltip 位置，或者在绘制前同步滚动位置时，才考虑 <code>useLayoutEffect</code>：</p>
+<pre><code class="language-jsx">function Tooltip({ anchorRef, children }) {
+  const tooltipRef = useRef(null)
+
+  useLayoutEffect(() =&gt; {
+    const anchor = anchorRef.current
+    const tooltip = tooltipRef.current
+    if (!anchor || !tooltip) return
+
+    const rect = anchor.getBoundingClientRect()
+    tooltip.style.top = `${rect.bottom + 8}px`
+    tooltip.style.left = `${rect.left}px`
+  })
+
+  return &lt;div ref={tooltipRef}&gt;{children}&lt;/div&gt;
+}</code></pre>
+<p>它会阻塞浏览器绘制，写多了反而让页面变慢；而且服务端没有布局信息，使用服务端渲染时还要处理 <code>useLayoutEffect</code> 的告警。绝大多数请求、订阅和数据同步仍然应该放在 <code>useEffect</code>。</p>
+<h2>useMemo 和 useCallback：缓存结果，不是修复工具</h2>
+<p><code>useMemo</code> 缓存计算结果，<code>useCallback</code> 缓存函数本身。下面两段的效果等价，区别只是后者少写一层返回函数：</p>
+<pre><code class="language-jsx">const handleSelectA = useMemo(() =&gt; {
+  return id =&gt; onSelect(id)
+}, [onSelect])
+
+const handleSelectB = useCallback(id =&gt; onSelect(id), [onSelect])</code></pre>
+<p>真正值得缓存的通常是昂贵的派生计算，或者要传给 <code>memo</code> 子组件、要作为另一个 Hook 依赖的稳定引用：</p>
+<pre><code class="language-jsx">const visibleRows = useMemo(
+  () =&gt; rows.filter(row =&gt; row.name.includes(keyword)),
+  [rows, keyword]
+)
+
+const handleSelect = useCallback(
+  id =&gt; onSelect(id),
+  [onSelect]
+)
+
+return &lt;ResultList rows={visibleRows} onSelect={handleSelect} /&gt;</code></pre>
+<p>如果 <code>ResultList</code> 没有用 <code>memo</code>，或者父组件每次都传入一个新的 <code>onSelect</code>，上面的缓存可能没有收益。<code>useMemo</code> 和 <code>useCallback</code> 都是性能优化，不是语义保证；代码去掉缓存后不应该变得“不正确”。先用 Profiler 找到重复 render 和真正耗时的计算，再决定要不要承担缓存的依赖和维护成本。</p>
+<h2>React 18 之后：把“不急的更新”说清楚</h2>
+<p><code>useTransition</code> 和 <code>useDeferredValue</code> 解决的不是防抖，也不是让 CPU 变快，而是告诉 React 哪些更新可以晚一点完成：</p>
+<pre><code class="language-jsx">function SearchPage({ rows }) {
+  const [query, setQuery] = useState('')
+  const deferredQuery = useDeferredValue(query)
+  const visibleRows = useMemo(
+    () =&gt; expensiveFilter(rows, deferredQuery),
+    [rows, deferredQuery]
+  )
+
+  return (
+    &lt;&gt;
+      &lt;input value={query} onChange={event =&gt; setQuery(event.target.value)} /&gt;
+      &lt;ResultList rows={visibleRows} /&gt;
+    &lt;/&gt;
+  )
+}</code></pre>
+<p>输入框的 <code>query</code> 立即更新，列表可以暂时使用旧的 <code>deferredQuery</code>。它没有承诺固定延迟，也不会替你取消网络请求。<code>useTransition</code> 则适合把一次切换页面、筛选结果这类非紧急 state 更新包起来；受控输入本身仍应该保持同步，否则输入会感觉发黏。</p>
+<p>它的写法大概是这样，<code>isPending</code> 只用来告诉用户列表还在切换：</p>
+<pre><code class="language-jsx">const [isPending, startTransition] = useTransition()
+const [tab, setTab] = useState('all')
+
+function selectTab(nextTab) {
+  startTransition(() =&gt; setTab(nextTab))
+}
+
+return &lt;button onClick={() =&gt; selectTab('archived')} disabled={isPending}&gt;已归档&lt;/button&gt;</code></pre>
+<h2>自定义 Hook 只是复用逻辑，不会共享 state</h2>
+<p>当一段订阅或请求逻辑在多个组件重复出现时，可以提取成 <code>useOnlineStatus</code>、<code>useDebouncedValue</code> 这样的自定义 Hook。它必须在组件或另一个 Hook 的顶层调用，不能放进条件、循环和普通工具函数里；每个组件调用一次，就有自己独立的 state 和 effect。</p>
+<p>如果数据来自 React 之外的 store，不要随手用“effect 订阅 + setState”拼一个半成品。React 18 的 <code>useSyncExternalStore</code> 把 <code>subscribe</code> 和 <code>getSnapshot</code> 的契约写清楚，能让外部 store 在并发渲染下有一致的读取方式。<code>useId</code> 也有类似的边界：它适合生成服务端和客户端一致的 DOM id，不适合拿来当列表的业务 key。</p>
+<p>我现在判断一个 Hook 是否该留下，会先看它保护的边界：state 负责画面，ref 负责过程，effect 负责外部系统，memo 只负责已经测出来的重复工作，transition 负责更新的优先级。边界清楚后，代码里反而不需要到处出现 Hook。</p>
