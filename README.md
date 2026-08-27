@@ -23,4 +23,6 @@
 
 本地验收通过并完成备份后，线上部署时在 WordPress 后台上传并启用 `eno-workbench.zip`，再上传并激活 `eno-workbench-content-importer.zip`。文章内容、分类、标签和发布时间都由插件写入 WordPress，后续可继续从后台编辑。不要把 `infra/.env`、密码或密钥提交到仓库。
 
+线上反向代理配置保存在 `infra/nginx-blog.conf`：80 端口保留 ACME HTTP-01 校验路径，其余请求跳转到 HTTPS；443 端口终止 TLS 后把 `X-Forwarded-Proto: https` 传给 WordPress。`infra/renew-certificates.sh` 通过 Certbot webroot 模式续期证书，服务器定时任务每天执行两次并在完成后重新加载 Nginx。证书、私钥和 Certbot 账户数据只保存在服务器 `/etc/letsencrypt`，不得提交到仓库。
+
 主题的深浅模式会优先跟随系统设置；访客手动选择后写入浏览器 `localStorage`，刷新后保持选择。支持 View Transition API 的浏览器会从点击位置做圆形扩散，不支持或开启减少动态效果时会直接切换。

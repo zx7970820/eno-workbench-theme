@@ -1,10 +1,16 @@
 <!doctype html>
-<html <?php language_attributes(); ?>>
+<html <?php language_attributes(); ?> data-site-name="<?php echo esc_attr(get_bloginfo('name')); ?>">
 <head>
   <meta charset="<?php bloginfo('charset'); ?>">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script>(function(){try{var k='eno-theme',v=localStorage.getItem(k),d=window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';document.documentElement.dataset.theme=v==='light'||v==='dark'?v:d;}catch(e){document.documentElement.dataset.theme='dark';}})();</script>
   <?php wp_head(); ?>
+  <?php
+  $eno_theme_version = wp_get_theme()->get('Version');
+  $eno_favicon_z = add_query_arg('ver', $eno_theme_version, get_theme_file_uri('/assets/favicon-z.png'));
+  $eno_favicon_x = add_query_arg('ver', $eno_theme_version, get_theme_file_uri('/assets/favicon-x.png'));
+  ?>
+  <link id="eno-favicon" rel="icon" type="image/png" sizes="any" href="<?php echo esc_url($eno_favicon_z); ?>" data-favicon-z="<?php echo esc_url($eno_favicon_z); ?>" data-favicon-x="<?php echo esc_url($eno_favicon_x); ?>">
 </head>
 <body <?php body_class(); ?>>
 <?php wp_body_open(); ?>
@@ -29,3 +35,4 @@
   </aside>
   <main class="main-area" id="content">
     <header class="mobile-header"><button data-menu-open aria-expanded="false" aria-controls="site-navigation" aria-label="<?php esc_attr_e('打开菜单', 'eno-workbench'); ?>"><i class="ti ti-menu-2" aria-hidden="true"></i></button><a href="<?php echo esc_url(home_url('/')); ?>"><span class="brand-name" data-theme-brand data-dark-label="eno 的小黑屋" data-light-label="eno 的小白屋">eno 的小黑屋</span></a><button class="theme-toggle" type="button" data-theme-toggle aria-pressed="false" aria-label="切换到浅色模式" title="切换到浅色模式"><i class="ti ti-sun" aria-hidden="true"></i><span class="screen-reader-text">切换到浅色模式</span></button></header>
+    <div id="eno-route-content">

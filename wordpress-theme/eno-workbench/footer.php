@@ -1,3 +1,4 @@
+    </div>
     <footer class="site-footer">
       <a class="brand" href="<?php echo esc_url(home_url('/')); ?>"><span>&gt;_</span> <span class="brand-name" data-theme-brand data-dark-label="eno 的小黑屋" data-light-label="eno 的小白屋">eno 的小黑屋</span></a>
       <p>记录系统如何运行，也记录我如何理解它。</p>

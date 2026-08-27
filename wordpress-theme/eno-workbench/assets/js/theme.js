@@ -2,6 +2,40 @@
   const root = document.documentElement;
   const themeButtons = document.querySelectorAll('[data-theme-toggle]');
   const brandNodes = document.querySelectorAll('[data-theme-brand]');
+  const faviconNode = document.querySelector('#eno-favicon');
+  const brandPattern = /^eno\s*(?:的\s*)?小(?:黑|白)屋$/u;
+  const cleanTitlePart = (part) => String(part || '').replace(/^\s+|\s+$/gu, '');
+  const titleParts = (value) => {
+    const raw = cleanTitlePart(value);
+    const hasLocalMarker = /（本地开发）\s*$/u.test(raw);
+    const withoutLocalMarker = cleanTitlePart(raw.replace(/\s*（本地开发）\s*$/u, ''));
+    const parts = withoutLocalMarker.split(/\s*(?:–|—|\|)\s*/u).map(cleanTitlePart).filter(Boolean);
+    return { parts, hasLocalMarker };
+  };
+  const titleBase = (value) => {
+    const parsed = titleParts(value);
+    const siteName = cleanTitlePart(root.dataset.siteName);
+    const baseParts = parsed.parts.filter((part) => part !== siteName && !brandPattern.test(part));
+    return {
+      base: baseParts.join(' – '),
+      hasLocalMarker: parsed.hasLocalMarker,
+    };
+  };
+  const updateDocumentTitle = (sourceTitle = document.title) => {
+    const parsed = titleBase(sourceTitle);
+    const brand = root.dataset.theme === 'light' ? 'eno 的小白屋' : 'eno 的小黑屋';
+    const suffix = parsed.hasLocalMarker ? '（本地开发）' : '';
+    document.title = `${parsed.base ? `${parsed.base} – ` : ''}${brand}${suffix}`;
+  };
+  const setFavicon = (visible) => {
+    if (!faviconNode) return;
+    const next = visible ? faviconNode.dataset.faviconZ : faviconNode.dataset.faviconX;
+    if (next && faviconNode.getAttribute('href') !== next) faviconNode.setAttribute('href', next);
+  };
+  const syncFavicon = () => setFavicon(document.visibilityState !== 'hidden');
+  document.addEventListener('visibilitychange', syncFavicon);
+  window.addEventListener('pageshow', () => setFavicon(true));
+  window.addEventListener('pagehide', () => setFavicon(false));
   const applyTheme = (theme) => {
     root.dataset.theme = theme;
     const light = theme === 'light';
@@ -19,8 +53,10 @@
       const text = button.querySelector('.screen-reader-text');
       if (text) text.textContent = label;
     });
+    updateDocumentTitle();
   };
   applyTheme(root.dataset.theme || 'dark');
+  syncFavicon();
   themeButtons.forEach((button) => button.addEventListener('click', (event) => {
     const next = root.dataset.theme === 'light' ? 'dark' : 'light';
     const commit = () => { applyTheme(next); try { localStorage.setItem('eno-theme', next); } catch (error) {} };
@@ -41,11 +77,11 @@
     }
   }));
 
-  // Cross-document View Transitions cannot know which of several list titles
-  // should be shared. Give only the title involved in this navigation a name.
-  const postTransitionName = 'eno-post-title';
-  const postTitleSelector = '[data-post-transition-title][data-post-url]';
-  const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Chrome can abort cross-document transitions before either page is ready.
+  // For article links, fetch the real WordPress route and swap only the route
+  // content inside a same-document transition. Native navigation remains the
+  // fallback whenever the enhancement cannot run.
+  const postTitleSelector = '[data-post-transition-title][data-post-url][data-post-id]';
   const normalizeUrl = (value) => {
     if (!value) return '';
     try {
@@ -58,83 +94,183 @@
       return '';
     }
   };
-  const getActivation = (event) => (event && event.activation) || (window.navigation && window.navigation.activation) || null;
-  const activationUrl = (activation, key) => normalizeUrl(activation && activation[key] && activation[key].url);
-  const titleForUrl = (url) => {
+  const titleForUrl = (url, scope = document) => {
     if (!url) return null;
-    return Array.from(document.querySelectorAll(postTitleSelector)).find((node) => normalizeUrl(node.dataset.postUrl) === url) || null;
+    return Array.from(scope.querySelectorAll(postTitleSelector)).find((node) => normalizeUrl(node.dataset.postUrl) === url) || null;
   };
-  const articleTitle = () => document.querySelector('.entry-shell ' + postTitleSelector);
-  const skipTransition = (transition) => {
-    if (transition && typeof transition.skipTransition === 'function') {
-      try { transition.skipTransition(); } catch (error) {}
+  const articleTitle = (scope = document) => scope.querySelector('.entry-shell ' + postTitleSelector);
+  let preparedTitles = [];
+  const clearPreparedTitles = () => {
+    preparedTitles.forEach((node) => {
+      node.style.removeProperty('view-transition-name');
+    });
+    preparedTitles = [];
+  };
+  const preparePostTitle = (url, nextTitle) => {
+    clearPreparedTitles();
+    const destinationTitle = titleForUrl(normalizeUrl(url));
+    const currentTitle = articleTitle();
+    if (currentTitle && currentTitle !== destinationTitle) {
+      currentTitle.style.setProperty('view-transition-name', 'none');
+      preparedTitles.push(currentTitle);
     }
+    if (!destinationTitle || !nextTitle) return false;
+    destinationTitle.style.setProperty('view-transition-name', 'eno-post-title');
+    nextTitle.style.setProperty('view-transition-name', 'eno-post-title');
+    preparedTitles.push(destinationTitle, nextTitle);
+    return true;
   };
-  const markTitle = (node, marked) => {
-    if (!node || marked.has(node)) return;
-    marked.set(node, node.style.viewTransitionName);
-    node.style.viewTransitionName = postTransitionName;
+  window.addEventListener('pageshow', clearPreparedTitles);
+
+  const routeCache = new Map();
+  const createRouteKey = () => `eno-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+  const cleanRouteClone = (route) => {
+    const clone = route.cloneNode(true);
+    clone.querySelectorAll(postTitleSelector).forEach((node) => {
+      node.style.removeProperty('view-transition-name');
+      if (!node.getAttribute('style')) node.removeAttribute('style');
+    });
+    return clone;
   };
-  const watchTransition = (transition, marked) => {
-    let cleaned = false;
-    const cleanup = () => {
-      if (cleaned) return;
-      cleaned = true;
-      marked.forEach((previousName, node) => {
-        node.style.viewTransitionName = previousName;
-      });
-      window.removeEventListener('pagehide', cleanup);
-    };
-    if (!transition) return cleanup;
-    // A page entering BFCache may not get to the normal finished callback
-    // while it is frozen, so never leave an inline name behind on restore.
-    window.addEventListener('pagehide', cleanup, { once: true });
+  let currentRouteKey = history.state && history.state.enoRouteKey ? history.state.enoRouteKey : createRouteKey();
+  let currentRouteUrl = normalizeUrl(window.location.href);
+  const rememberCurrentRoute = () => {
+    const route = document.querySelector('#eno-route-content');
+    if (!route || !currentRouteKey) return;
+    routeCache.set(currentRouteKey, {
+      route: cleanRouteClone(route),
+      bodyClass: document.body.className,
+      documentTitle: document.title,
+      scrollY: window.scrollY,
+    });
+  };
+  try {
+    const initialState = history.state && typeof history.state === 'object' ? history.state : {};
+    history.replaceState({ ...initialState, enoRouteKey: currentRouteKey }, '', window.location.href);
+  } catch (error) {}
+  rememberCurrentRoute();
+
+  let postNavigationController = null;
+  const nativePostNavigation = (url) => { window.location.assign(url); };
+  const navigateToPost = async (url) => {
+    const normalizedUrl = normalizeUrl(url);
+    if (!normalizedUrl || normalizeUrl(window.location.href) === normalizedUrl) return;
+    if (postNavigationController) postNavigationController.abort();
+    const controller = new AbortController();
+    postNavigationController = controller;
+
+    let response;
+    let nextDocument;
     try {
-      if (transition.finished && typeof transition.finished.then === 'function') {
-        transition.finished.then(cleanup, cleanup);
-      } else {
-        window.setTimeout(cleanup, 700);
-      }
+      response = await fetch(url, {
+        credentials: 'same-origin',
+        headers: { 'X-Eno-View-Transition': 'article' },
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error(`Navigation failed with ${response.status}`);
+      nextDocument = new DOMParser().parseFromString(await response.text(), 'text/html');
     } catch (error) {
-      cleanup();
+      if (error && error.name === 'AbortError') return;
+      nativePostNavigation(url);
+      return;
     }
-    return cleanup;
+    if (postNavigationController !== controller) return;
+
+    const currentRoute = document.querySelector('#eno-route-content');
+    const nextRoute = nextDocument.querySelector('#eno-route-content');
+    const nextTitle = articleTitle(nextDocument);
+    if (!currentRoute || !nextRoute || !nextTitle || !preparePostTitle(url, nextTitle)) {
+      clearPreparedTitles();
+      nativePostNavigation(url);
+      return;
+    }
+
+    const nextBodyClass = nextDocument.body.className;
+    const nextDocumentTitle = nextDocument.title;
+    const nextRouteKey = createRouteKey();
+    rememberCurrentRoute();
+    let transition;
+    try {
+      transition = document.startViewTransition(() => {
+        currentRoute.replaceWith(nextRoute);
+        document.body.className = nextBodyClass;
+        updateDocumentTitle(nextDocumentTitle);
+        window.history.pushState({ enoPostRoute: true, enoRouteKey: nextRouteKey }, '', url);
+        currentRouteKey = nextRouteKey;
+        currentRouteUrl = normalizedUrl;
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        setupReadingProgress();
+        rememberCurrentRoute();
+      });
+    } catch (error) {
+      clearPreparedTitles();
+      nativePostNavigation(url);
+      return;
+    }
+    transition.ready.catch(() => {});
+    transition.finished.then(clearPreparedTitles, clearPreparedTitles);
+    postNavigationController = null;
   };
 
-  window.addEventListener('pageswap', (event) => {
-    const transition = event.viewTransition;
-    const activation = getActivation(event);
-    if (reduceMotion() || !transition || !activation) { skipTransition(transition); return; }
-
-    const destinationUrl = activationUrl(activation, 'entry');
-    const marked = new Map();
-    const destinationTitle = titleForUrl(destinationUrl);
-    if (destinationTitle) {
-      markTitle(destinationTitle, marked);
-    } else {
-      // The incoming page will decide whether it has a matching list title.
-      // This also covers search/category pages reached through browser history.
-      markTitle(articleTitle(), marked);
-    }
-    if (!marked.size) { skipTransition(transition); return; }
-    watchTransition(transition, marked);
+  document.addEventListener('click', (event) => {
+    if ((typeof event.button === 'number' && event.button !== 0) || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const link = event.target instanceof Element ? event.target.closest('a[href]') : null;
+    if (!link || link.target === '_blank' || link.hasAttribute('download')) return;
+    const destinationUrl = normalizeUrl(link.href);
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!destinationUrl || !document.startViewTransition || reduceMotion || !titleForUrl(destinationUrl)) return;
+    if (normalizeUrl(window.location.href) === destinationUrl) return;
+    event.preventDefault();
+    navigateToPost(link.href);
   });
 
-  window.addEventListener('pagereveal', (event) => {
-    const transition = event.viewTransition;
-    const activation = getActivation(event);
-    if (reduceMotion() || !transition || !activation) { skipTransition(transition); return; }
-
-    const fromUrl = activationUrl(activation, 'from');
-    const marked = new Map();
-    const incomingArticleTitle = articleTitle();
-    if (incomingArticleTitle) {
-      markTitle(incomingArticleTitle, marked);
-    } else {
-      markTitle(titleForUrl(fromUrl), marked);
+  window.addEventListener('popstate', (event) => {
+    const targetRouteKey = event.state && event.state.enoRouteKey;
+    const cachedRoute = targetRouteKey ? routeCache.get(targetRouteKey) : null;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!cachedRoute || !document.startViewTransition || reduceMotion) {
+      window.location.reload();
+      return;
     }
-    if (!marked.size) { skipTransition(transition); return; }
-    watchTransition(transition, marked);
+    if (postNavigationController) postNavigationController.abort();
+
+    const currentRoute = document.querySelector('#eno-route-content');
+    const nextRoute = cachedRoute.route.cloneNode(true);
+    if (!currentRoute || !nextRoute) {
+      window.location.reload();
+      return;
+    }
+
+    const targetRouteUrl = normalizeUrl(window.location.href);
+    const currentArticleTitle = articleTitle();
+    const nextArticleTitle = articleTitle(nextRoute);
+    const sourceTitle = currentArticleTitle || titleForUrl(targetRouteUrl);
+    const destinationTitle = nextArticleTitle || titleForUrl(currentRouteUrl, nextRoute);
+    clearPreparedTitles();
+    if (sourceTitle && destinationTitle) {
+      sourceTitle.style.setProperty('view-transition-name', 'eno-post-title');
+      destinationTitle.style.setProperty('view-transition-name', 'eno-post-title');
+      preparedTitles.push(sourceTitle, destinationTitle);
+    }
+
+    let transition;
+    try {
+      transition = document.startViewTransition(() => {
+        currentRoute.replaceWith(nextRoute);
+        document.body.className = cachedRoute.bodyClass;
+        updateDocumentTitle(cachedRoute.documentTitle);
+        currentRouteKey = targetRouteKey;
+        currentRouteUrl = targetRouteUrl;
+        window.scrollTo({ top: cachedRoute.scrollY, left: 0, behavior: 'auto' });
+        setupReadingProgress();
+      });
+    } catch (error) {
+      clearPreparedTitles();
+      window.location.reload();
+      return;
+    }
+    transition.ready.catch(() => {});
+    transition.finished.then(clearPreparedTitles, clearPreparedTitles);
   });
 
   // Keep the title link's native keyboard/modifier behavior, while allowing
@@ -176,9 +312,15 @@
     }
   });
 
-  const progress = document.querySelector('.reading-progress span');
-  const article = document.querySelector('.entry-shell');
-  if (progress && article) {
+  let cleanupReadingProgress = () => {};
+  const setupReadingProgress = () => {
+    cleanupReadingProgress();
+    const progress = document.querySelector('.reading-progress span');
+    const article = document.querySelector('.entry-shell');
+    if (!progress || !article) {
+      cleanupReadingProgress = () => {};
+      return;
+    }
     const updateProgress = () => {
       const start = article.getBoundingClientRect().top + window.scrollY;
       const distance = Math.max(1, article.offsetHeight - window.innerHeight);
@@ -187,6 +329,11 @@
     };
     window.addEventListener('scroll', updateProgress, { passive: true });
     window.addEventListener('resize', updateProgress);
+    cleanupReadingProgress = () => {
+      window.removeEventListener('scroll', updateProgress);
+      window.removeEventListener('resize', updateProgress);
+    };
     updateProgress();
-  }
+  };
+  setupReadingProgress();
 })();
