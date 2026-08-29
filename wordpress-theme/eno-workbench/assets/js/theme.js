@@ -124,6 +124,25 @@
 
   const routeCache = new Map();
   const createRouteKey = () => `eno-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+  const setRouteScroll = (top) => {
+    // The page keeps smooth scrolling for normal anchor navigation, but a
+    // route transition must not animate the browser window underneath the
+    // captured snapshots. Temporarily opt out for this one positioning step.
+    const previousScrollBehavior = root.style.getPropertyValue('scroll-behavior');
+    const previousScrollBehaviorPriority = root.style.getPropertyPriority('scroll-behavior');
+    root.style.setProperty('scroll-behavior', 'auto', 'important');
+    // Force the new computed value before calling scrollTo; otherwise Chrome
+    // may queue a smooth scroll using the page-level `scroll-behavior` rule.
+    void root.offsetHeight;
+    window.scrollTo({ top, left: 0, behavior: 'auto' });
+    root.style.setProperty('scroll-behavior', previousScrollBehavior, previousScrollBehaviorPriority);
+  };
+  const disableRouteScrollAnchoring = () => {
+    const previousOverflowAnchor = root.style.getPropertyValue('overflow-anchor');
+    const previousOverflowAnchorPriority = root.style.getPropertyPriority('overflow-anchor');
+    root.style.setProperty('overflow-anchor', 'none', 'important');
+    return () => root.style.setProperty('overflow-anchor', previousOverflowAnchor, previousOverflowAnchorPriority);
+  };
   const cleanRouteClone = (route) => {
     const clone = route.cloneNode(true);
     clone.querySelectorAll(postTitleSelector).forEach((node) => {
@@ -189,6 +208,7 @@
     const nextDocumentTitle = nextDocument.title;
     const nextRouteKey = createRouteKey();
     rememberCurrentRoute();
+    const restoreScrollAnchoring = disableRouteScrollAnchoring();
     let transition;
     try {
       transition = document.startViewTransition(() => {
@@ -198,17 +218,18 @@
         window.history.pushState({ enoPostRoute: true, enoRouteKey: nextRouteKey }, '', url);
         currentRouteKey = nextRouteKey;
         currentRouteUrl = normalizedUrl;
-        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        setRouteScroll(0);
         setupReadingProgress();
         rememberCurrentRoute();
       });
     } catch (error) {
+      restoreScrollAnchoring();
       clearPreparedTitles();
       nativePostNavigation(url);
       return;
     }
     transition.ready.catch(() => {});
-    transition.finished.then(clearPreparedTitles, clearPreparedTitles);
+    transition.finished.then(() => { restoreScrollAnchoring(); clearPreparedTitles(); }, () => { restoreScrollAnchoring(); clearPreparedTitles(); });
     postNavigationController = null;
   };
 
@@ -253,6 +274,7 @@
       preparedTitles.push(sourceTitle, destinationTitle);
     }
 
+    const restoreScrollAnchoring = disableRouteScrollAnchoring();
     let transition;
     try {
       transition = document.startViewTransition(() => {
@@ -261,16 +283,17 @@
         updateDocumentTitle(cachedRoute.documentTitle);
         currentRouteKey = targetRouteKey;
         currentRouteUrl = targetRouteUrl;
-        window.scrollTo({ top: cachedRoute.scrollY, left: 0, behavior: 'auto' });
+        setRouteScroll(cachedRoute.scrollY);
         setupReadingProgress();
       });
     } catch (error) {
+      restoreScrollAnchoring();
       clearPreparedTitles();
       window.location.reload();
       return;
     }
     transition.ready.catch(() => {});
-    transition.finished.then(clearPreparedTitles, clearPreparedTitles);
+    transition.finished.then(() => { restoreScrollAnchoring(); clearPreparedTitles(); }, () => { restoreScrollAnchoring(); clearPreparedTitles(); });
   });
 
   // Keep the title link's native keyboard/modifier behavior, while allowing
