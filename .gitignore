@@ -3,6 +3,7 @@ node_modules/
 infra/.env
 infra/deployment-target.env
 dist/
+release/
 *.zip
 !eno-workbench.zip
 !eno-workbench-content-importer.zip

@@ -21,7 +21,11 @@
 
 ## 发布与部署
 
-本地验收通过并完成备份后，线上部署时在 WordPress 后台上传并启用 `eno-workbench.zip`，再上传并激活 `eno-workbench-content-importer.zip`。文章内容、分类、标签和发布时间都由插件写入 WordPress，后续可继续从后台编辑。不要把 `infra/.env`、密码或密钥提交到仓库。
+如需手动发布，可在 WordPress 后台上传并启用 `eno-workbench.zip`，再上传并激活 `eno-workbench-content-importer.zip`。文章内容、分类、标签和发布时间都由插件写入 WordPress，后续可继续从后台编辑。不要把 `infra/.env`、密码或密钥提交到仓库。
+
+仓库包含 `.github/workflows/ci-cd.yml`。推送到 `main` 后，GitHub Actions 会启动一次完整的本地 WordPress 验收、检查 PHP 语法、生成发布包，随后通过 SSH 直接更新线上主题和内容导入插件，并检查公开 HTTPS 路由。工作流不会覆盖数据库、`uploads` 或证书。
+
+首次启用时，只需在 GitHub 仓库的 Actions secrets 中添加 `DEPLOY_SSH_KEY`。它应是一把只用于这台服务器的部署私钥；服务器地址、用户和已核对的 ED25519 主机指纹保存在工作流中。推送 `main` 和在 Actions 页面手动运行该工作流都会直接发布，不需要额外审批。
 
 线上反向代理配置保存在 `infra/nginx-blog.conf`：80 端口保留 ACME HTTP-01 校验路径，其余请求跳转到 HTTPS；443 端口终止 TLS 后把 `X-Forwarded-Proto: https` 传给 WordPress。`infra/renew-certificates.sh` 通过 Certbot webroot 模式续期证书，服务器定时任务每天执行两次并在完成后重新加载 Nginx。证书、私钥和 Certbot 账户数据只保存在服务器 `/etc/letsencrypt`，不得提交到仓库。
 

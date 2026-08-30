@@ -1,0 +1,121 @@
+name: CI and deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eno-workbench-production
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify generated article HTML
+        run: |
+          npm run content:sync
+          git diff --exit-code -- content-importer/content
+
+      - name: Test prototype build contract
+        run: |
+          npm run build
+          npm run test:sites
+
+      - name: Start local WordPress
+        run: |
+          cp infra/.env.example infra/.env
+          npm run dev
+
+      - name: Check WordPress routes and PHP syntax
+        run: |
+          npm run local:check
+          docker compose --file infra/docker-compose.yml exec -T wordpress sh -eu -c '
+            find \
+              /var/www/html/wp-content/themes/eno-workbench \
+              /var/www/html/wp-content/plugins/eno-workbench-content-importer \
+              -type f -name "*.php" -print0 |
+              xargs -0 -n1 php -l
+          '
+
+      - name: Stop local WordPress
+        if: always()
+        run: docker compose --file infra/docker-compose.yml down --volumes
+
+      - name: Package WordPress release
+        run: npm run release:package
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wordpress-release-${{ github.sha }}
+          path: release/
+          if-no-files-found: error
+          retention-days: 14
+
+  deploy:
+    needs: ci
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_HOST: 8.148.14.82
+      DEPLOY_USER: admin
+      DEPLOY_HOST_KEY_SHA256: SHA256:nIyvrPrjNQRNeBTeizRGkJxHF58AexR/HjYHRcnsFVg
+    steps:
+      - name: Check out deployment script
+        uses: actions/checkout@v4
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: wordpress-release-${{ github.sha }}
+          path: release
+
+      - name: Verify release artifacts
+        run: cd release && sha256sum --check SHA256SUMS
+
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          test -n "$DEPLOY_SSH_KEY"
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$HOME/.ssh/id_ed25519"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          ssh-keyscan -t ed25519 "$DEPLOY_HOST" > "$HOME/.ssh/known_hosts"
+          test "$(ssh-keygen -lf "$HOME/.ssh/known_hosts" -E sha256 | awk 'NR == 1 { print $2 }')" = "$DEPLOY_HOST_KEY_SHA256"
+
+      - name: Upload and deploy
+        run: |
+          remote_theme="/tmp/eno-ci-theme-${GITHUB_SHA}.tar.gz"
+          remote_plugin="/tmp/eno-ci-plugin-${GITHUB_SHA}.tar.gz"
+          scp release/eno-workbench.tar.gz "$DEPLOY_USER@$DEPLOY_HOST:$remote_theme"
+          scp release/eno-workbench-content-importer.tar.gz "$DEPLOY_USER@$DEPLOY_HOST:$remote_plugin"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" \
+            "sh -s -- '$GITHUB_SHA' '$remote_theme' '$remote_plugin'" \
+            < scripts/deploy-wordpress.sh
+
+      - name: Verify production
+        run: |
+          curl --fail --show-error --silent --retry 5 --retry-all-errors https://enozheng.cn/ > /dev/null
+          curl --fail --show-error --silent --retry 5 --retry-all-errors 'https://enozheng.cn/?s=React' > /dev/null
+          curl --fail --show-error --silent --retry 5 --retry-all-errors 'https://enozheng.cn/index.php?rest_route=/wp/v2/posts/&per_page=1' > /dev/null
