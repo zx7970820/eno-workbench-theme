@@ -27,6 +27,13 @@ function eno_workbench_assets() {
 }
 add_action('wp_enqueue_scripts', 'eno_workbench_assets');
 
+function eno_workbench_search_posts_only($query) {
+    if (!is_admin() && $query->is_main_query() && $query->is_search()) {
+        $query->set('post_type', array('post'));
+    }
+}
+add_action('pre_get_posts', 'eno_workbench_search_posts_only');
+
 function eno_topic_url($slug) {
     $category = get_category_by_slug($slug);
     return $category ? get_category_link($category) : home_url('/?s=' . rawurlencode($slug));
