@@ -14,8 +14,8 @@
 <?php $previous = get_previous_post(); $next = get_next_post(); ?>
 <?php if ($previous || $next) : ?>
 <nav class="entry-nav" aria-label="文章导航">
-  <?php if ($previous) : ?><a class="entry-nav-card entry-nav-card--previous" href="<?php echo esc_url(get_permalink($previous)); ?>"><small>上一篇</small><strong data-post-transition-title data-post-url="<?php echo esc_url(get_permalink($previous)); ?>" data-post-id="<?php echo esc_attr($previous->ID); ?>"><?php echo esc_html(get_the_title($previous)); ?></strong><span>←</span></a><?php endif; ?>
-  <?php if ($next) : ?><a class="entry-nav-card entry-nav-card--next" href="<?php echo esc_url(get_permalink($next)); ?>"><small>下一篇</small><strong data-post-transition-title data-post-url="<?php echo esc_url(get_permalink($next)); ?>" data-post-id="<?php echo esc_attr($next->ID); ?>"><?php echo esc_html(get_the_title($next)); ?></strong><span>→</span></a><?php endif; ?>
+  <?php if ($previous) : ?><a class="entry-nav-card entry-nav-card--previous" href="<?php echo esc_url(get_permalink($previous)); ?>"><small>上一篇</small><strong data-post-transition-title data-post-url="<?php echo esc_url(get_permalink($previous)); ?>" data-post-id="<?php echo esc_attr($previous->ID); ?>"><?php echo esc_html(get_the_title($previous)); ?></strong></a><?php endif; ?>
+  <?php if ($next) : ?><a class="entry-nav-card entry-nav-card--next" href="<?php echo esc_url(get_permalink($next)); ?>"><small>下一篇</small><strong data-post-transition-title data-post-url="<?php echo esc_url(get_permalink($next)); ?>" data-post-id="<?php echo esc_attr($next->ID); ?>"><?php echo esc_html(get_the_title($next)); ?></strong></a><?php endif; ?>
 </nav>
 <?php endif; ?>
 <?php endwhile; ?>
