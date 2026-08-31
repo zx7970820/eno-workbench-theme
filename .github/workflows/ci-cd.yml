@@ -116,6 +116,9 @@ jobs:
 
       - name: Verify production
         run: |
-          curl --fail --show-error --silent --retry 5 --retry-all-errors https://enozheng.cn/ > /dev/null
-          curl --fail --show-error --silent --retry 5 --retry-all-errors 'https://enozheng.cn/?s=React' > /dev/null
-          curl --fail --show-error --silent --retry 5 --retry-all-errors 'https://enozheng.cn/index.php?rest_route=/wp/v2/posts/&per_page=1' > /dev/null
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" \
+            "curl --fail --show-error --silent --retry 5 --retry-all-errors --resolve 'enozheng.cn:443:127.0.0.1' 'https://enozheng.cn/' > /dev/null"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" \
+            "curl --fail --show-error --silent --retry 5 --retry-all-errors --resolve 'enozheng.cn:443:127.0.0.1' 'https://enozheng.cn/?s=React' > /dev/null"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" \
+            "curl --fail --show-error --silent --retry 5 --retry-all-errors --resolve 'enozheng.cn:443:127.0.0.1' 'https://enozheng.cn/index.php?rest_route=/wp/v2/posts/&per_page=1' > /dev/null"
