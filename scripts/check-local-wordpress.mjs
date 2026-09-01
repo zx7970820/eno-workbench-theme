@@ -33,7 +33,8 @@ try {
     "linux-file-descriptors-practical",
     "observability-three-signals",
   ];
-  if (response.status >= 400 || slugs.length < 18 || slugs.includes("hello-world") || retired.some((slug) => slugs.includes(slug))) failed = true;
+  const required = ["frontend-bff-smart-analysis", "home-wifi-rearrangement"];
+  if (response.status >= 400 || slugs.length < 20 || required.some((slug) => !slugs.includes(slug)) || slugs.includes("hello-world") || retired.some((slug) => slugs.includes(slug))) failed = true;
 } catch (error) {
   failed = true;
   console.error(`无法读取 WordPress 文章 API: ${error.message}`);

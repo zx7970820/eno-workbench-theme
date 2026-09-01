@@ -29,7 +29,7 @@ for (let attempt = 1; attempt <= 90; attempt += 1) {
   try {
     const response = await fetch("http://localhost:8080/index.php?rest_route=/wp/v2/posts/&per_page=100&_fields=slug");
     const posts = await response.json();
-    if (response.ok && Array.isArray(posts) && posts.length >= 18) {
+    if (response.ok && Array.isArray(posts) && posts.length >= 20) {
       ready = true;
       break;
     }
@@ -47,4 +47,4 @@ if (!ready) {
 
 console.log("本地 WordPress 开发版：http://localhost:8080/");
 console.log("本地后台：http://localhost:8080/wp-admin/");
-console.log("已检测到至少 18 篇文章；验收完成后再上传主题包和导入插件到线上。");
+console.log("已检测到至少 20 篇文章；验收完成后再上传主题包和导入插件到线上。");

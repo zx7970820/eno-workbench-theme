@@ -6,7 +6,7 @@
     <?php $cats = get_the_category(); ?>
     <div class="entry-breadcrumb"><a href="<?php echo esc_url(home_url('/')); ?>">全部文章</a><span aria-hidden="true">/</span><?php if ($cats) : ?><a href="<?php echo esc_url(get_category_link($cats[0])); ?>"><?php echo esc_html($cats[0]->name); ?></a><?php else : ?><span>深度阅读</span><?php endif; ?></div>
     <h1 data-post-transition-title data-post-url="<?php echo esc_url(get_permalink()); ?>" data-post-id="<?php echo esc_attr(get_the_ID()); ?>"><?php the_title(); ?></h1>
-    <div class="entry-meta"><span>发布于 <?php echo esc_html(get_the_date('Y-m-d')); ?></span><?php if (get_the_modified_date('Y-m-d') !== get_the_date('Y-m-d')) : ?><span>更新于 <?php echo esc_html(get_the_modified_date('Y-m-d')); ?></span><?php endif; ?></div>
+    <div class="entry-meta"><span>发布于 <?php echo esc_html(get_the_date('Y-m-d')); ?></span></div>
     <?php $tags = get_the_tags(); if ($tags) : ?><div class="entry-tags" aria-label="文章标签"><?php foreach ($tags as $tag) : ?><a href="<?php echo esc_url(get_tag_link($tag)); ?>">#<?php echo esc_html($tag->name); ?></a><?php endforeach; ?></div><?php endif; ?>
   </header>
   <div class="entry-content"><?php the_content(); wp_link_pages(); ?></div>
