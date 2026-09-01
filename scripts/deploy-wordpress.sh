@@ -90,7 +90,7 @@ docker exec --user root \
     # Replacing an active plugin directory does not fire its activation hook.
     # Run the idempotent importer explicitly so new articles and categories reach
     # the database on every code deployment without touching existing uploads.
-    php -r "require '/var/www/html/wp-load.php'; if (!function_exists('eno_workbench_import_articles')) { require '/var/www/html/wp-content/plugins/eno-workbench-content-importer/eno-workbench-content-importer.php'; } if (!function_exists('eno_workbench_import_articles')) { fwrite(STDERR, 'Content importer function is unavailable\\n'); exit(1); } eno_workbench_import_articles();"
+    php -r "require \"/var/www/html/wp-load.php\"; if (!function_exists(\"eno_workbench_import_articles\")) { require \"/var/www/html/wp-content/plugins/eno-workbench-content-importer/eno-workbench-content-importer.php\"; } if (!function_exists(\"eno_workbench_import_articles\")) { fwrite(STDERR, \"Content importer function is unavailable\\n\"); exit(1); } eno_workbench_import_articles();"
 
     rm -rf "$theme_previous" "$plugin_previous"
   '
