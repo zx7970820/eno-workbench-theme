@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: Eno Workbench Content Importer
- * Description: 一次性、幂等导入 Eno Workbench 的 18 篇正式文章；不创建账号，不提供前台逻辑。
- * Version: 1.0.8
+ * Description: 一次性、幂等导入 Eno Workbench 的 20 篇正式文章；不创建账号，不提供前台逻辑。
+ * Version: 1.1.0
  * Author: eno
  */
 if (!defined('ABSPATH')) { exit; }
@@ -23,6 +23,8 @@ function eno_workbench_import_articles() {
         array('title' => 'Vite 迁移后的第一周：快了，但测试和依赖暴露了问题', 'slug' => 'vite-migration-first-week', 'category' => '工具与效率', 'category_slug' => 'tooling', 'tags' => array('Vite','迁移','工程效率'), 'excerpt' => '从 webpack 迁到 Vite 并不只是换启动命令，测试环境、别名、动态导入和依赖预构建都要重新确认。', 'date' => '2025-10-12', 'file' => 'vite-migration-first-week.html'),
         array('title' => 'React 列表卡顿的真正原因：不是把 key 换成 index', 'slug' => 'react-list-performance-review', 'category' => '前端工程', 'category_slug' => 'frontend', 'tags' => array('React','性能','列表'), 'excerpt' => '一次长列表评审里，真正的问题是无效重渲染和过大的上下文，而不是表面上的 key 警告。', 'date' => '2026-02-07', 'file' => 'react-list-performance-review.html'),
         array('title' => '我把 React 仓库拉下来，翻了一遍它的 AI 协作文件', 'slug' => 'react-repo-agent-workflow', 'category' => '前端工程', 'category_slug' => 'frontend', 'tags' => array('React','AI 协作','工程流程','开源协作'), 'excerpt' => '随手翻一遍 React 官方仓库里的 CLAUDE.md、SKILL.md 和 CI 配置，看看成熟项目怎样把 AI 协作放进日常开发，而不是停在口号上。', 'date' => '2026-08-18', 'file' => 'react-repo-agent-workflow.html'),
+        array('title' => 'BFF 不是多套一层接口：从智能分析项目看前端服务边界', 'slug' => 'frontend-bff-smart-analysis', 'category' => '前端工程', 'category_slug' => 'frontend', 'tags' => array('BFF','前端工程','Node.js','Egg.js','接口设计'), 'excerpt' => '一个分析详情页为什么会越来越依赖后端细节？从智能分析机器人项目里的多服务数据编排，重新认识 BFF 该做什么、又不该做什么。', 'date' => '2026-08-30', 'file' => 'frontend-bff-smart-analysis.html'),
+        array('title' => '家里的 Wi‑Fi 总是差一点：我先移动路由器，再考虑换设备', 'slug' => 'home-wifi-rearrangement', 'category' => '生活随笔', 'category_slug' => 'life', 'tags' => array('生活','家庭网络','Wi‑Fi','路由器'), 'excerpt' => '家里的网络不是完全不能用，而是在最需要的时候卡一下。先把问题看清楚，再决定要不要买 Mesh，往往比换一套设备更有效。', 'date' => '2026-08-29', 'file' => 'home-wifi-rearrangement.html'),
         array('title' => '浏览器从打开网页到显示像素：一次页面加载的八个阶段', 'slug' => 'browser-navigation-rendering-pipeline', 'category' => '前端工程', 'category_slug' => 'frontend', 'tags' => array('浏览器','渲染','性能','网络'), 'excerpt' => '从输入 URL、建立连接、解析 HTML，到样式计算、布局、绘制、分层、光栅化和合成，沿着八个阶段看页面怎样变成屏幕上的像素。', 'date' => '2026-08-24', 'file' => 'browser-navigation-rendering-pipeline.html'),
         array('title' => 'script 标签的加载顺序：async、defer、module 和资源提示', 'slug' => 'script-loading-attributes', 'category' => '前端工程', 'category_slug' => 'frontend', 'tags' => array('浏览器','JavaScript','性能','HTML'), 'excerpt' => '把 script 的执行时机、模块脚本、CSP 和优先级属性拆开，再说明 dns-prefetch、preconnect、preload、prefetch 到底属于哪一种资源提示。', 'date' => '2026-08-22', 'file' => 'script-loading-attributes.html'),
         array('title' => '从 IIFE 到 ESM：JavaScript 模块化是怎么走到今天的', 'slug' => 'javascript-module-systems-history', 'category' => '前端工程', 'category_slug' => 'frontend', 'tags' => array('JavaScript','模块化','ESM','Vite'), 'excerpt' => '从早期的 IIFE 和 script 顺序，到 AMD、CMD、CommonJS，再到浏览器原生 ESM，沿着每一代模块方案解决的问题看它们的差别。', 'date' => '2026-08-20', 'file' => 'javascript-module-systems-history.html'),
