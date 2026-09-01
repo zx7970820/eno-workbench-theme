@@ -5,8 +5,8 @@
 ## 目录
 
 - `wordpress-theme/eno-workbench/`：可安装的 WordPress 主题，首页、文章、搜索、分类和 404 都由 WordPress 数据驱动；前台不再展示年份归档入口。
-- `content-importer/`：后台可上传的一次性幂等导入插件，内含 18 篇 HTML 正文。
-- `articles/`：18 篇文章的 Markdown 源文件，方便继续编辑和复用。
+- `content-importer/`：后台可上传的一次性幂等导入插件，内含 20 篇 HTML 正文。
+- `articles/`：20 篇文章的 Markdown 源文件，方便继续编辑和复用。
 - `infra/docker-compose.yml`：本地 WordPress + MariaDB 环境；`infra/.env.example` 只包含示例配置。
 - `eno-workbench.zip`、`eno-workbench-content-importer.zip`：可从 WordPress 后台上传的安装包。
 
